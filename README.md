@@ -1,7 +1,8 @@
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Informa - Sistema de Gestão</title>
+    <title>Informa - Gestão de Membros</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -66,19 +67,22 @@
         <input type="hidden" id="editMembroId">
         <div class="space-y-4 overflow-y-auto pr-2 flex-1">
             <input id="mNome" placeholder="Nome Completo" class="w-full p-4 border rounded-2xl bg-gray-50 outline-blue-600 font-medium">
-            <select id="mCategoria" class="w-full p-4 border rounded-2xl bg-gray-50 outline-blue-600 font-medium">
-                <option value="">Selecione a Categoria</option>
-                <option value="Meio Ambiente">🌿 Meio Ambiente</option>
-                <option value="Linguagens">📚 Linguagens</option>
-                <option value="Comunicações">📢 Comunicações</option>
-                <option value="Edição de Vídeo">🎬 Edição de Vídeo</option>
-                <option value="Cultura">🎭 Cultura</option>
-                <option value="Secretaria">📝 Secretaria</option>
-                <option value="Esportes">⚽ Esportes</option>
-                <option value="Presidência">👑 Presidência</option>
-                <option value="Informações">ℹ️ Informações</option>
-                <option value="Designer">🎨 Designer</option>
-            </select>
+            <div>
+                <label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Categoria/Setor</label>
+                <select id="mCategoria" class="w-full p-4 border rounded-2xl bg-gray-50 outline-blue-600 font-medium">
+                    <option value="">Selecione a Categoria</option>
+                    <option value="Meio Ambiente">🌿 Meio Ambiente</option>
+                    <option value="Linguagens">📚 Linguagens</option>
+                    <option value="Comunicações">📢 Comunicações</option>
+                    <option value="Edição de Vídeo">🎬 Edição de Vídeo</option>
+                    <option value="Cultura">🎭 Cultura</option>
+                    <option value="Secretaria">📝 Secretaria</option>
+                    <option value="Esportes">⚽ Esportes</option>
+                    <option value="Presidência">👑 Presidência</option>
+                    <option value="Informações">ℹ️ Informações</option>
+                    <option value="Designer">🎨 Designer</option>
+                </select>
+            </div>
             <input id="mEmail" type="email" placeholder="E-mail" class="w-full p-4 border rounded-2xl bg-gray-50 outline-blue-600">
             <div class="grid grid-cols-2 gap-3">
                 <select id="mMesEntrada" class="p-4 border rounded-2xl bg-gray-50 outline-blue-600">
@@ -169,12 +173,46 @@
         document.getElementById('btnLogout').onclick = () => location.reload();
 
         window.abrirDrawerMembro = (id = null) => {
+            const drawer = document.getElementById('drawerMembro');
+            const selectCat = document.getElementById('mCategoria');
+            
             document.getElementById('editMembroId').value = id || "";
-            document.getElementById('drawerMembro').classList.add('open');
+            drawer.classList.add('open');
             document.getElementById('drawerOverlay').classList.remove('hidden');
+
             if(!id) {
-                document.getElementById('mNome').value = ""; document.getElementById('mEmail').value = "";
-                document.getElementById('mAnoEntrada').value = ""; document.getElementById('mCategoria').value = "";
+                // Reset campos
+                document.getElementById('mNome').value = ""; 
+                document.getElementById('mEmail').value = "";
+                document.getElementById('mAnoEntrada').value = new Date().getFullYear();
+                
+                // LÓGICA DE CATEGORIA FIXADA
+                if (userLogado.nivel === 'user' && userLogado.categoriasPermitidas?.length > 0) {
+                    // Se o usuário só cuida de UMA categoria, fixa ela
+                    if (userLogado.categoriasPermitidas.length === 1) {
+                        selectCat.value = userLogado.categoriasPermitidas[0];
+                        selectCat.disabled = true; // Trava para não mudar
+                    } else {
+                        // Se cuida de várias, permite escolher apenas entre as dele
+                        selectCat.value = "";
+                        selectCat.disabled = false;
+                        Array.from(selectCat.options).forEach(opt => {
+                            if (opt.value !== "" && !userLogado.categoriasPermitidas.includes(opt.value)) {
+                                opt.hidden = true; // Esconde o que ele não pode ver
+                            } else {
+                                opt.hidden = false;
+                            }
+                        });
+                    }
+                } else {
+                    // Admin vê tudo e nada fica travado
+                    selectCat.value = "";
+                    selectCat.disabled = false;
+                    Array.from(selectCat.options).forEach(opt => opt.hidden = false);
+                }
+            } else {
+                // Edição: Mantém o select habilitado caso o Admin queira trocar
+                selectCat.disabled = (userLogado.nivel === 'user' && userLogado.categoriasPermitidas?.length === 1);
             }
         };
 
@@ -192,9 +230,19 @@
                 mesEntrada: document.getElementById('mMesEntrada').value,
                 anoEntrada: document.getElementById('mAnoEntrada').value
             };
-            if(id) { await updateDoc(doc(db, "membros", id), m); registrarLog(`Editou: ${m.nome}`); }
-            else { m.status = "Ativo"; await addDoc(collection(db, "membros"), m); registrarLog(`Criou: ${m.nome}`); }
-            fecharDrawerMembro(); carregarMembros();
+            
+            if(!m.nome || !m.categoria) return alert("Por favor, preencha o nome e a categoria.");
+
+            if(id) { 
+                await updateDoc(doc(db, "membros", id), m); 
+                registrarLog(`Editou: ${m.nome}`); 
+            } else { 
+                m.status = "Ativo"; 
+                await addDoc(collection(db, "membros"), m); 
+                registrarLog(`Criou: ${m.nome} em ${m.categoria}`); 
+            }
+            fecharDrawerMembro(); 
+            carregarMembros();
         };
 
         window.carregarMembros = async () => {
@@ -234,13 +282,7 @@
         window.enviarEmailDemissao = (email, nome, categoria) => {
             if(!email) { alert("Este membro não possui e-mail cadastrado."); return; }
             const assunto = encodeURIComponent(`Agradecimento - Jornal Informa (${categoria})`);
-            const corpo = encodeURIComponent(
-                `Olá, ${nome}.\n\n` +
-                `Gostaríamos de expressar nossa imensa gratidão por todo o tempo, dedicação e talento que você compartilhou conosco no setor de ${categoria}.\n\n` +
-                `Neste momento, o Jornal Informa está passando por algumas reestruturações e precisaremos encerrar sua colaboração conosco. No entanto, sua contribuição foi fundamental para o nosso crescimento e deixará uma marca positiva em nossa equipe.\n\n` +
-                `Desejamos a você muito sucesso em seus próximos passos e projetos. Saiba que as portas de nossa amizade e respeito estarão sempre abertas.\n\n` +
-                `Atenciosamente,\nEquipe de Gestão - Jornal Informa`
-            );
+            const corpo = encodeURIComponent(`Olá, ${nome}.\n\nGostaríamos de expressar nossa imensa gratidão por todo o tempo e dedicação no setor de ${categoria}...\n\nAtenciosamente,\nEquipe Informa.`);
             window.location.href = `mailto:${email}?subject=${assunto}&body=${corpo}`;
         };
 
