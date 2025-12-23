@@ -1,8 +1,7 @@
-<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Informa - Gestão Enterprise</title>
+    <title>Informa - Sistema de Gestão</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -152,13 +151,23 @@
             if (snap.empty) { document.getElementById('erro').innerText = "Credenciais inválidas"; return; }
             const userData = snap.docs[0].data();
             if (userData.status === "Inativo") { document.getElementById('erro').innerText = "ACESSO BLOQUEADO!"; return; }
+            
             userLogado = userData;
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('sistema').classList.remove('hidden');
-            if (userData.nivel === 'admin') {
-                document.getElementById('adminGear').classList.remove('hidden');
+
+            // LÓGICA DE VISIBILIDADE DE BOTÕES ESPECIAIS
+            const isPresidencia = userLogado.categoriasPermitidas?.includes("Presidência");
+            const isAdmin = userLogado.nivel === 'admin';
+
+            if (isAdmin || isPresidencia) {
                 document.getElementById('btnExcel').classList.remove('hidden');
             }
+            if (isAdmin) {
+                document.getElementById('adminGear').classList.remove('hidden');
+            }
+
+            registrarLog("Login efetuado");
             carregarMembros();
         };
 
@@ -175,17 +184,21 @@
                 document.getElementById('mEmail').value = "";
                 document.getElementById('mAnoEntrada').value = new Date().getFullYear();
                 
-                if (userLogado.nivel === 'user' && userLogado.categoriasPermitidas?.length > 0) {
-                    if (userLogado.categoriasPermitidas.length === 1) {
-                        selectCat.value = userLogado.categoriasPermitidas[0];
-                        selectCat.disabled = true;
-                    } else {
-                        selectCat.disabled = false;
-                        Array.from(selectCat.options).forEach(opt => opt.hidden = opt.value !== "" && !userLogado.categoriasPermitidas.includes(opt.value));
-                    }
+                // Se for Presidência ou Admin, pode escolher qualquer um. 
+                // Se for User comum com categoria fixa, trava a categoria.
+                const isPresidencia = userLogado.categoriasPermitidas?.includes("Presidência");
+                const isAdmin = userLogado.nivel === 'admin';
+
+                if (!isAdmin && !isPresidencia && userLogado.categoriasPermitidas?.length === 1) {
+                    selectCat.value = userLogado.categoriasPermitidas[0];
+                    selectCat.disabled = true;
                 } else {
                     selectCat.disabled = false;
-                    Array.from(selectCat.options).forEach(opt => opt.hidden = false);
+                    selectCat.value = "";
+                    Array.from(selectCat.options).forEach(opt => {
+                        if (isAdmin || isPresidencia) opt.hidden = false;
+                        else opt.hidden = opt.value !== "" && !userLogado.categoriasPermitidas.includes(opt.value);
+                    });
                 }
             }
         };
@@ -204,14 +217,8 @@
                 mesEntrada: document.getElementById('mMesEntrada').value,
                 anoEntrada: document.getElementById('mAnoEntrada').value
             };
-            if(id) {
-                await updateDoc(doc(db, "membros", id), m);
-                registrarLog(`Editou membro: ${m.nome}`);
-            } else {
-                m.status = "Ativo"; 
-                await addDoc(collection(db, "membros"), m);
-                registrarLog(`Adicionou membro: ${m.nome}`);
-            }
+            if(id) await updateDoc(doc(db, "membros", id), m);
+            else { m.status = "Ativo"; await addDoc(collection(db, "membros"), m); }
             fecharDrawerMembro(); carregarMembros();
         };
 
@@ -219,9 +226,16 @@
             const snap = await getDocs(query(collection(db, "membros"), orderBy("nome", "asc")));
             const lista = document.getElementById('listaMembros');
             lista.innerHTML = "";
+            
+            const isPresidencia = userLogado.categoriasPermitidas?.includes("Presidência");
+            const isAdmin = userLogado.nivel === 'admin';
+
             snap.forEach(d => {
                 const m = d.data();
-                if(userLogado.nivel === 'user' && !userLogado.categoriasPermitidas?.includes(m.categoria)) return;
+                
+                // Filtro: Se for Admin ou Presidência, vê tudo. Se for User comum, vê só o dele.
+                if(!isAdmin && !isPresidencia && !userLogado.categoriasPermitidas?.includes(m.categoria)) return;
+
                 const inativo = m.status === 'Inativo';
                 lista.innerHTML += `
                 <tr class="hover:bg-gray-50 border-b ${inativo ? 'bg-red-50/50 opacity-60' : ''}">
@@ -234,32 +248,46 @@
                         </button>
                     </td>
                     <td class="px-6 py-4 text-center space-x-3 text-lg">
-                        <button onclick="enviarEmailDemissao('${m.email}', '${m.nome}', '${m.categoria}')" title="E-mail">✉️</button>
-                        <button onclick="abrirEdicaoMembro('${d.id}')" title="Editar">✏️</button>
-                        <button onclick="excluirMembroMembro('${d.id}', '${m.nome}')" title="Excluir" class="text-red-500">🗑️</button>
+                        <button onclick="enviarEmailDemissao('${m.email}', '${m.nome}', '${m.categoria}')">✉️</button>
+                        <button onclick="abrirEdicaoMembro('${d.id}')">✏️</button>
+                        <button onclick="excluirMembroMembro('${d.id}', '${m.nome}')" class="text-red-500">🗑️</button>
                     </td>
                 </tr>`;
             });
         };
 
+        window.toggleStatusMembro = async (id, status) => {
+            const novo = status === 'Inativo' ? 'Ativo' : 'Inativo';
+            await updateDoc(doc(db, "membros", id), { status: novo });
+            carregarMembros();
+        };
+
         window.excluirMembroMembro = async (id, nome) => {
-            if(confirm(`Tem certeza que deseja EXCLUIR permanentemente o membro ${nome}? Esta ação não pode ser desfeita.`)) {
+            if(confirm(`Excluir permanentemente ${nome}?`)) {
                 await deleteDoc(doc(db, "membros", id));
-                registrarLog(`Excluiu membro: ${nome}`);
                 carregarMembros();
             }
         };
 
-        window.toggleStatusMembro = async (id, status) => {
-            const novo = status === 'Inativo' ? 'Ativo' : 'Inativo';
-            await updateDoc(doc(db, "membros", id), { status: novo });
-            registrarLog(`Mudou status membro ${id} para ${novo}`);
-            carregarMembros();
-        };
-
         window.enviarEmailDemissao = (email, nome, categoria) => {
             if(!email) return alert("E-mail não cadastrado.");
-            window.location.href = `mailto:${email}?subject=Agradecimento&body=Olá ${nome}, agradecemos seu tempo no setor ${categoria}...`;
+            window.location.href = `mailto:${email}?subject=Agradecimento&body=Olá ${nome}, agradecemos sua dedicação...`;
+        };
+
+        window.exportarExcelPorCategoria = async () => {
+            const snap = await getDocs(collection(db, "membros"));
+            const dadosPorCat = {};
+            snap.forEach(d => {
+                const m = d.data();
+                if (!dadosPorCat[m.categoria]) dadosPorCat[m.categoria] = [];
+                dadosPorCat[m.categoria].push({ "Nome": m.nome, "E-mail": m.email, "Entrada": `${m.mesEntrada}/${m.anoEntrada}`, "Status": m.status || "Ativo" });
+            });
+            const wb = XLSX.utils.book_new();
+            Object.keys(dadosPorCat).forEach(cat => {
+                const ws = XLSX.utils.json_to_sheet(dadosPorCat[cat]);
+                XLSX.utils.book_append_sheet(wb, ws, cat.substring(0, 30)); 
+            });
+            XLSX.writeFile(wb, "Relatorio_Informa_Presidencia.xlsx");
         };
 
         window.abrirEdicaoMembro = async (id) => {
@@ -277,7 +305,7 @@
             });
         };
 
-        // ADMIN USUÁRIOS
+        // ADMIN DE USUÁRIOS (SÓ ADMIN ACESSA)
         window.salvarUsuarioSistema = async () => {
             const id = document.getElementById('editUserId').value;
             const u = {
@@ -314,22 +342,11 @@
             carregarLogins();
         };
 
-        window.removerAcc = async (id) => { if(confirm("Excluir acesso?")) { await deleteDoc(doc(db, "usuarios", id)); carregarLogins(); } };
+        window.removerAcc = async (id) => { if(confirm("Remover login?")) { await deleteDoc(doc(db, "usuarios", id)); carregarLogins(); } };
 
         window.switchTab = (tab) => {
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             document.getElementById(`content-${tab}`).classList.add('active');
-            if(tab === 'logs') carregarLogs();
-        };
-
-        window.carregarLogs = async () => {
-            const snap = await getDocs(query(collection(db, "logs"), orderBy("data", "desc")));
-            const lista = document.getElementById('listaLogs');
-            lista.innerHTML = "";
-            snap.forEach(d => {
-                const l = d.data();
-                lista.innerHTML += `<div class="p-1 uppercase border-b border-white/5 font-bold italic">[${l.data?.toDate().toLocaleString()}] ${l.usuario}: ${l.acao}</div>`;
-            });
         };
 
         document.getElementById('adminGear').onclick = () => { document.getElementById('modalAdmin').classList.add('open'); carregarLogins(); };
