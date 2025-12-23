@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Informa - Sistema de Gestão</title>
+    <title>Informa - Gestão de Membros</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -215,8 +215,14 @@
                 mesEntrada: document.getElementById('mMesEntrada').value,
                 anoEntrada: document.getElementById('mAnoEntrada').value
             };
-            if(id) await updateDoc(doc(db, "membros", id), m);
-            else { m.status = "Ativo"; await addDoc(collection(db, "membros"), m); }
+            if(id) {
+                await updateDoc(doc(db, "membros", id), m);
+                registrarLog(`Editou membro: ${m.nome}`);
+            } else {
+                m.status = "Ativo"; 
+                await addDoc(collection(db, "membros"), m);
+                registrarLog(`Novo membro: ${m.nome}`);
+            }
             fecharDrawerMembro(); carregarMembros();
         };
 
@@ -242,12 +248,27 @@
                         </button>
                     </td>
                     <td class="px-6 py-4 text-center space-x-3 text-lg">
-                        <button onclick="enviarEmailDemissao('${m.email}', '${m.nome}', '${m.categoria}')">✉️</button>
-                        <button onclick="abrirEdicaoMembro('${d.id}')">✏️</button>
-                        <button onclick="excluirMembroMembro('${d.id}', '${m.nome}')" class="text-red-500">🗑️</button>
+                        <button onclick="enviarEmailInteligente('${m.email}', '${m.nome}', '${m.categoria}', '${m.status || 'Ativo'}')" title="Enviar E-mail">✉️</button>
+                        <button onclick="abrirEdicaoMembro('${d.id}')" title="Editar">✏️</button>
+                        <button onclick="excluirMembroMembro('${d.id}', '${m.nome}')" class="text-red-500" title="Excluir">🗑️</button>
                     </td>
                 </tr>`;
             });
+        };
+
+        window.enviarEmailInteligente = (email, nome, categoria, status) => {
+            if(!email) return alert("E-mail não cadastrado.");
+            let assunto = "";
+            let mensagem = "";
+
+            if (status === "Ativo") {
+                assunto = encodeURIComponent(`Parabéns! Você agora é Colaborador Oficial - Jornal Informa`);
+                mensagem = `Olá, ${nome}.\n\nÉ com muita alegria que comunicamos sua efetivação como COLABORADOR oficial do Jornal Informa no setor de ${categoria}!\n\nApós concluir seu período de 3 meses de estágio, sua dedicação foi reconhecida. Seja bem-vindo(a) permanentemente à equipe!\n\nAvante,\nEquipe de Gestão – Jornal Informa\n© 2025 – Gerado via Sistema CLX`;
+            } else {
+                assunto = encodeURIComponent(`Agradecimento e Encerramento de Ciclo - Jornal Informa`);
+                mensagem = `Olá, ${nome}.\n\nEscrevemos para agradecer imensamente pelo tempo e dedicação durante seu período de estágio em ${categoria}.\n\nInformamos que seu ciclo conosco se encerra agora. Desejamos muito sucesso em sua trajetória profissional.\n\nAtenciosamente,\nEquipe de Gestão – Jornal Informa\n© 2025 – Gerado via Sistema CLX`;
+            }
+            window.location.href = `mailto:${email}?subject=${assunto}&body=${encodeURIComponent(mensagem)}`;
         };
 
         window.toggleStatusMembro = async (id, status) => {
@@ -259,13 +280,9 @@
         window.excluirMembroMembro = async (id, nome) => {
             if(confirm(`Excluir permanentemente ${nome}?`)) {
                 await deleteDoc(doc(db, "membros", id));
+                registrarLog(`Excluiu membro: ${nome}`);
                 carregarMembros();
             }
-        };
-
-        window.enviarEmailDemissao = (email, nome, categoria) => {
-            if(!email) return alert("E-mail não cadastrado.");
-            window.location.href = `mailto:${email}?subject=Agradecimento&body=Olá ${nome}, agradecemos sua dedicação...`;
         };
 
         window.exportarExcelPorCategoria = async () => {
@@ -299,6 +316,7 @@
             });
         };
 
+        // ADMIN DE USUÁRIOS
         window.salvarUsuarioSistema = async () => {
             const id = document.getElementById('editUserId').value;
             const u = {
@@ -307,8 +325,14 @@
                 nivel: document.getElementById('accNivel').value,
                 categoriasPermitidas: Array.from(document.querySelectorAll('input[name="catPermissao"]:checked')).map(c => c.value)
             };
+            if(!u.usuario || !u.senha) return alert("Preencha login e senha");
             if(id) await updateDoc(doc(db, "usuarios", id), u);
             else { u.status = "Ativo"; await addDoc(collection(db, "usuarios"), u); }
+            
+            document.getElementById('editUserId').value = "";
+            document.getElementById('accUser').value = "";
+            document.getElementById('accPass').value = "";
+            document.querySelectorAll('input[name="catPermissao"]').forEach(c => c.checked = false);
             carregarLogins();
         };
 
@@ -318,15 +342,30 @@
             lista.innerHTML = "";
             snap.forEach(d => {
                 const u = d.data();
+                const b = u.status === "Inativo";
                 lista.innerHTML += `
-                <div class="flex justify-between p-3 border rounded-2xl bg-white shadow-sm text-[10px] font-bold items-center">
-                    <span>${u.usuario.toUpperCase()}</span>
+                <div class="flex justify-between p-3 border rounded-2xl bg-white shadow-sm text-[10px] font-bold items-center ${b ? 'bg-gray-100 opacity-60' : ''}">
+                    <span>${u.usuario.toUpperCase()} (${u.nivel})</span>
                     <div class="space-x-2">
-                        <button onclick="toggleStatusUser('${d.id}', '${u.status}')" class="px-2 py-1 rounded border ${u.status === 'Inativo' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}">${u.status || 'Ativo'}</button>
+                        <button onclick="toggleStatusUser('${d.id}', '${u.status}')" class="px-2 py-1 rounded border ${b ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}">${u.status || 'Ativo'}</button>
                         <button onclick="abrirEdicaoUser('${d.id}')" class="text-blue-600">✏️</button>
                         <button onclick="removerAcc('${d.id}')" class="text-gray-400">🗑️</button>
                     </div>
                 </div>`;
+            });
+        };
+
+        window.abrirEdicaoUser = async (id) => {
+            const snap = await getDocs(collection(db, "usuarios"));
+            snap.forEach(d => {
+                if(d.id === id) {
+                    const u = d.data();
+                    document.getElementById('editUserId').value = id;
+                    document.getElementById('accUser').value = u.usuario;
+                    document.getElementById('accPass').value = u.senha;
+                    document.getElementById('accNivel').value = u.nivel;
+                    document.querySelectorAll('input[name="catPermissao"]').forEach(c => c.checked = u.categoriasPermitidas?.includes(c.value));
+                }
             });
         };
 
@@ -340,6 +379,17 @@
         window.switchTab = (tab) => {
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             document.getElementById(`content-${tab}`).classList.add('active');
+            if(tab === 'logs') carregarLogs();
+        };
+
+        window.carregarLogs = async () => {
+            const snap = await getDocs(query(collection(db, "logs"), orderBy("data", "desc")));
+            const lista = document.getElementById('listaLogs');
+            lista.innerHTML = "";
+            snap.forEach(d => {
+                const l = d.data();
+                lista.innerHTML += `<div class="p-1 border-b border-white/10 italic">[${l.data?.toDate().toLocaleString()}] ${l.usuario}: ${l.acao}</div>`;
+            });
         };
 
         document.getElementById('adminGear').onclick = () => { document.getElementById('modalAdmin').classList.add('open'); carregarLogins(); };
