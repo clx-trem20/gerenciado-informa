@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Informa - Gestão de Membros</title>
+    <title>Informa - Gestão Enterprise</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -131,7 +131,6 @@
         let userLogado = null;
         const listaCats = ["Meio Ambiente", "Linguagens", "Comunicações", "Edição de Vídeo", "Cultura", "Secretaria", "Esportes", "Presidência", "Informações", "Designer"];
 
-        // Preenche as categorias no Admin e no Cadastro
         const gridCats = document.getElementById('gridCategoriasPermitidas');
         const mCatSelect = document.getElementById('mCategoria');
         mCatSelect.innerHTML = '<option value="">Selecione a Categoria</option>';
@@ -152,7 +151,7 @@
             const snap = await getDocs(q);
             if (snap.empty) { document.getElementById('erro').innerText = "Credenciais inválidas"; return; }
             const userData = snap.docs[0].data();
-            if (userData.status === "Inativo") { document.getElementById('erro').innerText = "ACESSO BLOQUEADO PELO ADMIN!"; return; }
+            if (userData.status === "Inativo") { document.getElementById('erro').innerText = "ACESSO BLOQUEADO!"; return; }
             userLogado = userData;
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('sistema').classList.remove('hidden');
@@ -205,8 +204,14 @@
                 mesEntrada: document.getElementById('mMesEntrada').value,
                 anoEntrada: document.getElementById('mAnoEntrada').value
             };
-            if(id) await updateDoc(doc(db, "membros", id), m);
-            else { m.status = "Ativo"; await addDoc(collection(db, "membros"), m); }
+            if(id) {
+                await updateDoc(doc(db, "membros", id), m);
+                registrarLog(`Editou membro: ${m.nome}`);
+            } else {
+                m.status = "Ativo"; 
+                await addDoc(collection(db, "membros"), m);
+                registrarLog(`Adicionou membro: ${m.nome}`);
+            }
             fecharDrawerMembro(); carregarMembros();
         };
 
@@ -229,85 +234,32 @@
                         </button>
                     </td>
                     <td class="px-6 py-4 text-center space-x-3 text-lg">
-                        <button onclick="enviarEmailDemissao('${m.email}', '${m.nome}', '${m.categoria}')">✉️</button>
-                        <button onclick="abrirEdicaoMembro('${d.id}')">✏️</button>
+                        <button onclick="enviarEmailDemissao('${m.email}', '${m.nome}', '${m.categoria}')" title="E-mail">✉️</button>
+                        <button onclick="abrirEdicaoMembro('${d.id}')" title="Editar">✏️</button>
+                        <button onclick="excluirMembroMembro('${d.id}', '${m.nome}')" title="Excluir" class="text-red-500">🗑️</button>
                     </td>
                 </tr>`;
             });
         };
 
-        // ADMIN DE USUÁRIOS
-        window.salvarUsuarioSistema = async () => {
-            const id = document.getElementById('editUserId').value;
-            const u = {
-                usuario: document.getElementById('accUser').value,
-                senha: document.getElementById('accPass').value,
-                nivel: document.getElementById('accNivel').value,
-                categoriasPermitidas: Array.from(document.querySelectorAll('input[name="catPermissao"]:checked')).map(c => c.value)
-            };
-            if(!u.usuario || !u.senha) return alert("Preencha login e senha");
-            if(id) await updateDoc(doc(db, "usuarios", id), u);
-            else { u.status = "Ativo"; await addDoc(collection(db, "usuarios"), u); }
-            
-            document.getElementById('editUserId').value = "";
-            document.getElementById('accUser').value = "";
-            document.getElementById('accPass').value = "";
-            document.querySelectorAll('input[name="catPermissao"]').forEach(c => c.checked = false);
-            carregarLogins();
-        };
-
-        window.carregarLogins = async () => {
-            const snap = await getDocs(collection(db, "usuarios"));
-            const lista = document.getElementById('listaAcessos');
-            lista.innerHTML = "";
-            snap.forEach(d => {
-                const u = d.data();
-                const bloqueado = u.status === "Inativo";
-                lista.innerHTML += `
-                <div class="flex justify-between p-3 border rounded-2xl bg-white shadow-sm text-[10px] font-bold items-center ${bloqueado ? 'bg-gray-100 opacity-60' : ''}">
-                    <span>${u.usuario.toUpperCase()} (${u.nivel})</span>
-                    <div class="space-x-2">
-                        <button onclick="toggleStatusUser('${d.id}', '${u.status}')" class="px-2 py-1 rounded border ${bloqueado ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}">${u.status || 'Ativo'}</button>
-                        <button onclick="abrirEdicaoUser('${d.id}')" class="text-blue-600">✏️</button>
-                        <button onclick="removerAcc('${d.id}')" class="text-gray-400">🗑️</button>
-                    </div>
-                </div>`;
-            });
-        };
-
-        window.abrirEdicaoUser = async (id) => {
-            const snap = await getDocs(collection(db, "usuarios"));
-            snap.forEach(d => {
-                if(d.id === id) {
-                    const u = d.data();
-                    document.getElementById('editUserId').value = id;
-                    document.getElementById('accUser').value = u.usuario;
-                    document.getElementById('accPass').value = u.senha;
-                    document.getElementById('accNivel').value = u.nivel;
-                    document.querySelectorAll('input[name="catPermissao"]').forEach(c => {
-                        c.checked = u.categoriasPermitidas?.includes(c.value);
-                    });
-                }
-            });
-        };
-
-        window.toggleStatusUser = async (id, status) => {
-            const novo = status === "Inativo" ? "Ativo" : "Inativo";
-            await updateDoc(doc(db, "usuarios", id), { status: novo });
-            carregarLogins();
-        };
-
-        window.removerAcc = async (id) => { if(confirm("Excluir este acesso?")) { await deleteDoc(doc(db, "usuarios", id)); carregarLogins(); } };
-
-        window.switchTab = (tab) => {
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            document.getElementById(`content-${tab}`).classList.add('active');
+        window.excluirMembroMembro = async (id, nome) => {
+            if(confirm(`Tem certeza que deseja EXCLUIR permanentemente o membro ${nome}? Esta ação não pode ser desfeita.`)) {
+                await deleteDoc(doc(db, "membros", id));
+                registrarLog(`Excluiu membro: ${nome}`);
+                carregarMembros();
+            }
         };
 
         window.toggleStatusMembro = async (id, status) => {
             const novo = status === 'Inativo' ? 'Ativo' : 'Inativo';
             await updateDoc(doc(db, "membros", id), { status: novo });
+            registrarLog(`Mudou status membro ${id} para ${novo}`);
             carregarMembros();
+        };
+
+        window.enviarEmailDemissao = (email, nome, categoria) => {
+            if(!email) return alert("E-mail não cadastrado.");
+            window.location.href = `mailto:${email}?subject=Agradecimento&body=Olá ${nome}, agradecemos seu tempo no setor ${categoria}...`;
         };
 
         window.abrirEdicaoMembro = async (id) => {
@@ -322,6 +274,61 @@
                     document.getElementById('mAnoEntrada').value = m.anoEntrada;
                     document.getElementById('mCategoria').value = m.categoria;
                 }
+            });
+        };
+
+        // ADMIN USUÁRIOS
+        window.salvarUsuarioSistema = async () => {
+            const id = document.getElementById('editUserId').value;
+            const u = {
+                usuario: document.getElementById('accUser').value,
+                senha: document.getElementById('accPass').value,
+                nivel: document.getElementById('accNivel').value,
+                categoriasPermitidas: Array.from(document.querySelectorAll('input[name="catPermissao"]:checked')).map(c => c.value)
+            };
+            if(id) await updateDoc(doc(db, "usuarios", id), u);
+            else { u.status = "Ativo"; await addDoc(collection(db, "usuarios"), u); }
+            carregarLogins();
+        };
+
+        window.carregarLogins = async () => {
+            const snap = await getDocs(collection(db, "usuarios"));
+            const lista = document.getElementById('listaAcessos');
+            lista.innerHTML = "";
+            snap.forEach(d => {
+                const u = d.data();
+                lista.innerHTML += `
+                <div class="flex justify-between p-3 border rounded-2xl bg-white shadow-sm text-[10px] font-bold items-center">
+                    <span>${u.usuario.toUpperCase()}</span>
+                    <div class="space-x-2">
+                        <button onclick="toggleStatusUser('${d.id}', '${u.status}')" class="px-2 py-1 rounded border ${u.status === 'Inativo' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}">${u.status || 'Ativo'}</button>
+                        <button onclick="abrirEdicaoUser('${d.id}')" class="text-blue-600">✏️</button>
+                        <button onclick="removerAcc('${d.id}')" class="text-gray-400">🗑️</button>
+                    </div>
+                </div>`;
+            });
+        };
+
+        window.toggleStatusUser = async (id, status) => {
+            await updateDoc(doc(db, "usuarios", id), { status: status === "Inativo" ? "Ativo" : "Inativo" });
+            carregarLogins();
+        };
+
+        window.removerAcc = async (id) => { if(confirm("Excluir acesso?")) { await deleteDoc(doc(db, "usuarios", id)); carregarLogins(); } };
+
+        window.switchTab = (tab) => {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(`content-${tab}`).classList.add('active');
+            if(tab === 'logs') carregarLogs();
+        };
+
+        window.carregarLogs = async () => {
+            const snap = await getDocs(query(collection(db, "logs"), orderBy("data", "desc")));
+            const lista = document.getElementById('listaLogs');
+            lista.innerHTML = "";
+            snap.forEach(d => {
+                const l = d.data();
+                lista.innerHTML += `<div class="p-1 uppercase border-b border-white/5 font-bold italic">[${l.data?.toDate().toLocaleString()}] ${l.usuario}: ${l.acao}</div>`;
             });
         };
 
