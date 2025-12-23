@@ -271,10 +271,10 @@
             let assunto = "";
             if (status === "Ativo") {
                 assunto = "Parabéns pela Efetivação - Jornal Informa";
-                msg = `Informamos que, após o período de 3 meses de estágio, sua efetivação foi concluída no Informa.\n\nDurante esse período, você apresentou desempenho consistente, comprometimento e responsabilidade, atendendo às expectativas da função.\n\nParabenizamos por este passo e desejamos sucesso e crescimento contínuo nesta nova etapa.\n\nAtenciosamente,\nEquipe de Gestão – Jornal Informa\n© 2025 – Criado por CLX`;
+                msg = `Informamos que, após o período de 3 meses de estágio, sua efetivação foi concluída no Informa.\n\nDurante esse período, você apresentou desempenho consistente, comprometimento e responsabilidade, atendendo às expectativas da função.\n\nParabenizamos por este passo e desejamos sucesso e crescimento contínuo nesta nova etapa.\n\nAtenciosamente,\nEquipe de Gestão – Informa`;
             } else {
                 assunto = "Comunicado de Estágio - Jornal Informa";
-                msg = `Informamos que, após o período de 3 meses de estágio, a efetivação não foi possível neste momento.\n\nAgradecemos pelo empenho e dedicação demonstrados durante esse período.\n\nDesejamos sucesso em seus próximos passos e ficamos à disposição para futuras oportunidades.\n\nAtenciosamente,\nEquipe de Gestão – Jornal Informa\n© 2025 – Criado por CLX`;
+                msg = `Informamos que, após o período de 3 meses de estágio, a efetivação não foi possível neste momento.\n\nAgradecemos pelo empenho e dedicação demonstrados durante esse período.\n\nDesejamos sucesso em seus próximos passos e ficamos à disposição para futuras oportunidades.\n\nAtenciosamente,\nEquipe de Gestão – Informa';
             }
 
             const textoFinal = `Olá, ${nome}!\n\n${msg}`;
