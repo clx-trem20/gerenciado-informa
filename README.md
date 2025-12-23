@@ -2,109 +2,71 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Sistema Informa - Enterprise v6.0</title>
+    <title>Sistema Informa - Administração</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        :root { --primary: #2563eb; --danger: #dc2626; --success: #10b981; --gray: #64748b; }
-        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; }
-        .drawer { transform: translateX(100%); transition: transform 0.3s ease-in-out; }
-        .drawer.open { transform: translateX(0); }
-        .bloqueado { opacity: 0.6; background: #fee2e2 !important; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+        .modal.open { display: flex; }
     </style>
 </head>
-<body class="min-h-screen">
+<body class="bg-slate-100 min-h-screen">
 
     <div id="login-screen" class="flex items-center justify-center h-screen">
         <div class="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-md border-t-8 border-blue-600">
-            <h1 class="text-3xl font-black text-center text-blue-600 mb-2">JORNAL INFORMA</h1>
-            <p class="text-gray-400 text-center mb-8 uppercase text-xs font-bold tracking-widest">Acesso Restrito</p>
-            <input type="text" id="loginUser" placeholder="Usuário" class="w-full p-3 mb-4 border rounded-xl outline-blue-500">
-            <input type="password" id="loginPass" placeholder="Senha" class="w-full p-3 mb-6 border rounded-xl outline-blue-500">
+            <h1 class="text-3xl font-black text-center text-blue-600 mb-6 uppercase tracking-tighter">Jornal Informa</h1>
+            <input type="text" id="loginUser" placeholder="Usuário" class="w-full p-3 mb-4 border rounded-xl outline-blue-500 bg-gray-50">
+            <input type="password" id="loginPass" placeholder="Senha" class="w-full p-3 mb-6 border rounded-xl outline-blue-500 bg-gray-50">
             <button id="btnLogin" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg">ENTRAR NO SISTEMA</button>
-            <p id="erro" class="text-red-500 text-center mt-4 text-sm font-medium"></p>
+            <p id="erro" class="text-red-500 text-center mt-4 text-sm font-semibold"></p>
         </div>
     </div>
 
-    <div id="adminGear" class="fixed top-6 right-6 text-3xl cursor-pointer hidden z-50 bg-white p-2 rounded-full shadow-lg">⚙️</div>
-
-    <div id="sistema" class="hidden p-6 max-w-7xl mx-auto">
-        <header class="flex justify-between items-center mb-10 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <div>
-                <h2 class="text-2xl font-bold text-gray-800">Dashboard Equipe</h2>
-                <p class="text-gray-500">Olá, <span id="userName" class="text-blue-600 font-bold"></span></p>
+    <div id="sistema" class="hidden">
+        <nav class="bg-white shadow-sm border-b px-8 py-4 flex justify-between items-center sticky top-0 z-40">
+            <h2 class="text-xl font-bold text-blue-700 uppercase">Jornal Informa</h2>
+            <div class="flex items-center space-x-4">
+                <button id="adminGear" class="hidden text-2xl hover:rotate-90 transition duration-500">⚙️</button>
+                <button id="btnLogout" class="bg-gray-200 text-gray-700 px-4 py-1.5 rounded-lg font-bold hover:bg-gray-300 transition">Sair</button>
             </div>
-            <div class="flex space-x-3">
-                <button onclick="exportarExcel()" class="bg-green-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-green-700 transition flex items-center shadow-md">
-                    <span class="mr-2">📊</span> Excel
-                </button>
-                <button onclick="toggleDrawer()" class="bg-blue-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-blue-700 transition shadow-md">
-                    + Adicionar Membro
-                </button>
-                <button id="btnLogout" class="bg-gray-200 text-gray-700 px-5 py-2 rounded-lg font-bold hover:bg-gray-300 transition">Sair</button>
-            </div>
-        </header>
+        </nav>
 
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-            <table class="min-w-full">
-                <thead class="bg-gray-50 text-gray-500 text-xs font-bold uppercase">
-                    <tr>
-                        <th class="px-6 py-4 text-left tracking-wider">Nome Completo</th>
-                        <th class="px-6 py-4 text-left tracking-wider">E-mail</th>
-                        <th class="px-6 py-4 text-left tracking-wider">Ingresso</th>
-                        <th class="px-6 py-4 text-left tracking-wider">Status</th>
-                        <th class="px-6 py-4 text-center tracking-wider">Ações</th>
-                    </tr>
-                </thead>
-                <tbody id="listaMembros" class="divide-y divide-gray-100 text-sm text-gray-700 font-medium"></tbody>
-            </table>
-        </div>
+        <main class="p-8 max-w-6xl mx-auto">
+            <div class="bg-white p-8 rounded-2xl shadow-sm border text-center">
+                <h1 class="text-2xl font-bold text-gray-800">Bem-vindo, <span id="userName" class="text-blue-600"></span>!</h1>
+                <p class="text-gray-500 mt-2">Você está autenticado no painel de controle.</p>
+            </div>
+        </main>
     </div>
 
-    <div id="drawer" class="drawer fixed top-0 right-0 h-full w-full max-w-sm bg-white shadow-2xl z-50 p-8 border-l">
-        <div class="flex justify-between items-center mb-8">
-            <h2 class="text-2xl font-bold text-gray-800">Novo Membro</h2>
-            <button onclick="toggleDrawer()" class="text-gray-400 hover:text-red-500 text-3xl">&times;</button>
-        </div>
-        <div class="space-y-4">
-            <input type="text" id="membroNome" placeholder="Nome Completo" class="w-full p-3 border rounded-lg bg-gray-50 outline-blue-500">
-            <input type="email" id="membroEmail" placeholder="E-mail" class="w-full p-3 border rounded-lg bg-gray-50 outline-blue-500">
-            <input type="date" id="membroData" class="w-full p-3 border rounded-lg bg-gray-50 outline-blue-500">
-            <button onclick="salvarMembro()" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg">CADASTRAR</button>
-        </div>
-    </div>
-
-    <div id="painelAdmin" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-        <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-8 max-h-[90vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-gray-800">⚙️ Gestão de Usuários do Sistema</h2>
-                <button onclick="fecharAdmin()" class="text-gray-400 text-2xl font-bold">&times;</button>
-            </div>
+    <div id="modalAdmin" class="modal">
+        <div class="bg-white w-full max-w-3xl rounded-2xl shadow-2xl p-8 max-h-[90vh] overflow-y-auto relative">
+            <button onclick="fecharAdmin()" class="absolute top-4 right-6 text-gray-400 text-3xl hover:text-red-500">&times;</button>
+            
+            <h2 class="text-2xl font-black text-gray-800 mb-6 border-b pb-4">⚙️ Controle de Acessos</h2>
             
             <div class="bg-blue-50 p-6 rounded-xl mb-8">
-                <h4 class="font-bold text-blue-800 mb-4">Criar Novo Acesso (Login)</h4>
-                <div class="grid grid-cols-2 gap-3">
-                    <input id="novoLogin" placeholder="Usuário" class="p-2 border rounded">
-                    <input id="novaSenha" type="password" placeholder="Senha" class="p-2 border rounded">
-                    <select id="novoNivel" class="p-2 border rounded">
-                        <option value="user">Usuário Comum</option>
+                <h4 class="font-bold text-blue-800 mb-4 uppercase text-xs tracking-widest">Criar Novo Login</h4>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <input id="novoLogin" placeholder="Nome de Usuário" class="p-2.5 border rounded-lg outline-blue-400">
+                    <input id="novaSenha" type="password" placeholder="Senha" class="p-2.5 border rounded-lg outline-blue-400">
+                    <select id="novoNivel" class="p-2.5 border rounded-lg outline-blue-400 bg-white">
+                        <option value="user">Membro (Normal)</option>
                         <option value="admin">Administrador</option>
                     </select>
-                    <button onclick="criarAcesso()" class="bg-blue-600 text-white rounded font-bold">CRIAR</button>
+                    <button onclick="criarAcesso()" class="bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition">CRIAR</button>
                 </div>
             </div>
 
-            <h4 class="font-bold text-gray-700 mb-4 tracking-tight">Usuários com Acesso:</h4>
-            <div id="listaAcessos" class="space-y-2"></div>
+            <h4 class="font-bold text-gray-700 mb-4 uppercase text-xs tracking-widest">Gerenciar Contas</h4>
+            <div id="listaAcessos" class="space-y-3">
+                </div>
         </div>
     </div>
 
-    <footer>© 2025 – Sistema Informa – Criado por <b>CLX</b></footer>
-
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAZsk5iPq2plw37JcgNFEhbKXkOGjtMYZU",
@@ -118,161 +80,100 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        let userLogado = null;
-
-        // --- SISTEMA DE LOGIN ---
+        // --- LOGIN ---
         document.getElementById('btnLogin').onclick = async () => {
             const u = document.getElementById('loginUser').value;
             const p = document.getElementById('loginPass').value;
             const erro = document.getElementById('erro');
 
             const q = query(collection(db, "usuarios"), where("usuario", "==", u), where("senha", "==", p));
-            const snapshot = await getDocs(q);
+            const snap = await getDocs(q);
 
-            if (snapshot.empty) {
-                erro.innerText = "Credenciais inválidas!";
+            if (snap.empty) {
+                erro.innerText = "Usuário ou senha incorretos!";
                 return;
             }
 
-            const data = snapshot.docs[0].data();
-            if (!data.ativo) {
-                erro.innerText = "Acesso bloqueado pelo administrador.";
+            const user = snap.docs[0].data();
+            if (!user.ativo) {
+                erro.innerText = "ACESSO BLOQUEADO!";
                 return;
             }
 
-            userLogado = data;
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('sistema').classList.remove('hidden');
-            document.getElementById('userName').innerText = data.usuario;
+            document.getElementById('userName').innerText = user.usuario;
 
-            if (data.nivel === 'admin') {
+            if (user.nivel === 'admin') {
                 document.getElementById('adminGear').classList.remove('hidden');
             }
-            carregarMembros();
         };
 
         document.getElementById('btnLogout').onclick = () => location.reload();
 
-        // --- GESTÃO DE MEMBROS ---
-        window.toggleDrawer = () => document.getElementById('drawer').classList.toggle('open');
-
-        window.salvarMembro = async () => {
-            const nome = document.getElementById('membroNome').value;
-            const email = document.getElementById('membroEmail').value;
-            const data = document.getElementById('membroData').value;
-
-            if(!nome || !email || !data) return alert("Preencha tudo!");
-
-            await addDoc(collection(db, "membros"), { nome, email, data, status: "Ativo" });
-            alert("Membro cadastrado!");
-            toggleDrawer();
-            carregarMembros();
-        };
-
-        window.carregarMembros = async () => {
-            const q = query(collection(db, "membros"), orderBy("nome", "asc"));
-            const snapshot = await getDocs(q);
-            const lista = document.getElementById('listaMembros');
-            lista.innerHTML = "";
-
-            snapshot.forEach(docSnap => {
-                const m = docSnap.data();
-                const id = docSnap.id;
-                const dataF = m.data.split('-').reverse().join('/');
-                const isAtivo = m.status === 'Ativo';
-
-                lista.innerHTML += `
-                    <tr class="border-b transition hover:bg-gray-50 ${!isAtivo ? 'bg-red-50 text-gray-400' : ''}">
-                        <td class="px-6 py-4 font-bold">${m.nome}</td>
-                        <td class="px-6 py-4 font-normal text-gray-500">${m.email}</td>
-                        <td class="px-6 py-4">${dataF}</td>
-                        <td class="px-6 py-4 text-xs">
-                            <span class="px-2 py-1 rounded-full ${isAtivo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${m.status}</span>
-                        </td>
-                        <td class="px-6 py-4 text-center space-x-2">
-                            <button onclick="mudarStatusMembro('${id}', '${m.status}')" class="text-lg">🚫</button>
-                            <button onclick="enviarEmailDespedida('${m.email}', '${m.nome}')" class="text-lg">✉️</button>
-                        </td>
-                    </tr>`;
-            });
-        };
-
-        window.mudarStatusMembro = async (id, statusAtual) => {
-            const novo = statusAtual === 'Ativo' ? 'Inativo' : 'Ativo';
-            await updateDoc(doc(db, "membros", id), { status: novo });
-            carregarMembros();
-        };
-
-        window.enviarEmailDespedida = (email, nome) => {
-            const assunto = encodeURIComponent("Um agradecimento do Jornal Informa");
-            const corpo = encodeURIComponent(`Olá, ${nome}!\n\nGostaríamos de agradecer imensamente por todo o seu esforço e dedicação durante o tempo em que colaborou com o Informa. Sua marca ficou registrada em nossa equipe!\n\nDesejamos muito sucesso em sua jornada.\n\nCom gratidão,\nEquipe Jornal Informa.`);
-            window.location.href = `mailto:${email}?subject=${assunto}&body=${corpo}`;
-        };
-
-        // --- GESTÃO DE ACESSOS (ADMIN) ---
+        // --- PAINEL ADMIN (ENGRENAGEM) ---
         document.getElementById('adminGear').onclick = () => {
-            document.getElementById('painelAdmin').classList.remove('hidden');
+            document.getElementById('modalAdmin').classList.add('open');
             carregarAcessos();
         };
-        window.fecharAdmin = () => document.getElementById('painelAdmin').classList.add('hidden');
+        window.fecharAdmin = () => document.getElementById('modalAdmin').classList.remove('open');
 
         window.criarAcesso = async () => {
             const u = document.getElementById('novoLogin').value;
             const s = document.getElementById('novaSenha').value;
             const n = document.getElementById('novoNivel').value;
-            if(!u || !s) return alert("Preencha login e senha!");
+            if(!u || !s) return alert("Preencha todos os campos!");
 
             await addDoc(collection(db, "usuarios"), { usuario: u, senha: s, nivel: n, ativo: true });
-            alert("Acesso criado!");
+            alert("Acesso criado com sucesso!");
             carregarAcessos();
+            document.getElementById('novoLogin').value = ""; document.getElementById('novaSenha').value = "";
         };
 
         window.carregarAcessos = async () => {
-            const snapshot = await getDocs(collection(db, "usuarios"));
+            const snap = await getDocs(collection(db, "usuarios"));
             const lista = document.getElementById('listaAcessos');
             lista.innerHTML = "";
 
-            snapshot.forEach(d => {
+            snap.forEach(d => {
                 const u = d.data();
+                const id = d.id;
                 lista.innerHTML += `
-                    <div class="flex justify-between items-center p-3 border rounded-lg ${!u.ativo ? 'bg-red-50' : ''}">
-                        <span><b>${u.usuario}</b> (${u.nivel})</span>
-                        <div class="space-x-2">
-                            <button onclick="toggleAcesso('${d.id}', ${u.ativo})" class="text-xs bg-gray-200 p-1 rounded font-bold">${u.ativo ? 'BLOQUEAR' : 'ATIVAR'}</button>
-                            ${u.usuario !== 'CLX' ? `<button onclick="removerAcesso('${d.id}')" class="text-xs bg-red-100 text-red-600 p-1 rounded font-bold">EXCLUIR</button>` : ''}
+                    <div class="flex flex-col md:flex-row md:items-center justify-between p-4 border rounded-xl bg-white shadow-sm ${!u.ativo ? 'border-red-300 bg-red-50' : ''}">
+                        <div class="mb-3 md:mb-0">
+                            <span class="font-bold text-gray-800 text-lg">${u.usuario}</span>
+                            <span class="ml-2 px-2 py-0.5 bg-gray-100 text-[10px] font-bold uppercase rounded text-gray-500 border">${u.nivel}</span>
+                            <div class="text-[11px] text-gray-400">Senha: ${u.senha}</div>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="mudarSenha('${id}', '${u.usuario}')" class="px-3 py-1 bg-yellow-500 text-white text-xs font-bold rounded-lg hover:bg-yellow-600 transition">REDEFINIR SENHA</button>
+                            <button onclick="toggleBloqueio('${id}', ${u.ativo})" class="px-3 py-1 ${u.ativo ? 'bg-orange-500' : 'bg-green-600'} text-white text-xs font-bold rounded-lg transition">
+                                ${u.ativo ? 'BLOQUEAR' : 'DESBLOQUEAR'}
+                            </button>
+                            ${u.usuario !== 'CLX' ? `<button onclick="excluirUser('${id}')" class="px-3 py-1 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition">EXCLUIR</button>` : ''}
                         </div>
                     </div>`;
             });
         };
 
-        window.toggleAcesso = async (id, status) => {
-            await updateDoc(doc(db, "usuarios", id), { ativo: !status });
-            carregarAcessos();
-        };
-
-        window.removerAcesso = async (id) => {
-            if(confirm("Remover permanentemente?")) {
-                await deleteDoc(doc(db, "usuarios", id));
+        window.mudarSenha = async (id, nome) => {
+            const nova = prompt(`Digite a nova senha para ${nome}:`);
+            if(nova) {
+                await updateDoc(doc(db, "usuarios", id), { senha: nova });
                 carregarAcessos();
             }
         };
 
-        // --- EXCEL ---
-        window.exportarExcel = async () => {
-            const snapshot = await getDocs(collection(db, "membros"));
-            const ativos = [], inativos = [];
+        window.toggleBloqueio = async (id, status) => {
+            await updateDoc(doc(db, "usuarios", id), { ativo: !status });
+            carregarAcessos();
+        };
 
-            snapshot.forEach(d => {
-                const m = d.data();
-                const row = { "Nome": m.nome, "E-mail": m.email, "Ingresso": m.data.split('-').reverse().join('/') };
-                if(m.status === 'Ativo') ativos.push(row);
-                else inativos.push(row);
-            });
-
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ativos), "Ativos");
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(inativos), "Inativos");
-            XLSX.writeFile(wb, "Relatorio_Informa_Equipe.xlsx");
+        window.excluirUser = async (id) => {
+            if(confirm("Deseja deletar permanentemente este acesso?")) {
+                await deleteDoc(doc(db, "usuarios", id));
+                carregarAcessos();
+            }
         };
     </script>
 </body>
