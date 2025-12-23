@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -14,9 +15,9 @@
         .tab-content.active { display: block; }
     </style>
 </head>
-<body class="bg-slate-100 min-h-screen font-sans">
+<body class="bg-slate-100 min-h-screen font-sans flex flex-col">
 
-    <div id="login-screen" class="flex items-center justify-center h-screen px-4">
+    <div id="login-screen" class="flex flex-1 items-center justify-center px-4">
         <div class="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md border-t-8 border-blue-600">
             <h1 class="text-3xl font-black text-center text-blue-600 mb-2 italic uppercase tracking-tighter">Informa</h1>
             <p class="text-gray-400 text-center text-[10px] font-bold mb-8 tracking-widest uppercase">Gerenciamento Interno</p>
@@ -27,7 +28,7 @@
         </div>
     </div>
 
-    <div id="sistema" class="hidden">
+    <div id="sistema" class="hidden flex-1 flex flex-col">
         <nav class="bg-white border-b px-6 py-4 flex justify-between items-center sticky top-0 z-40">
             <h2 class="text-xl font-black text-blue-700 uppercase tracking-tighter italic">Informa</h2>
             <div class="flex items-center space-x-3">
@@ -37,7 +38,7 @@
             </div>
         </nav>
 
-        <main class="p-6 max-w-6xl mx-auto">
+        <main class="p-6 max-w-6xl mx-auto w-full flex-1">
             <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
                 <h1 class="text-2xl font-black text-gray-800 uppercase tracking-tighter">Equipe do Jornal</h1>
                 <button onclick="abrirDrawerMembro()" class="bg-blue-600 text-white px-8 py-3 rounded-2xl font-bold shadow-lg hover:bg-blue-700 transition">+ Novo Membro</button>
@@ -59,6 +60,10 @@
             </div>
         </main>
     </div>
+
+    <footer class="py-6 text-center text-gray-400 text-[10px] font-bold uppercase tracking-[3px] mt-auto">
+        © 2025 – Criado por CLX
+    </footer>
 
     <div id="drawerOverlay" onclick="fecharDrawerMembro()" class="fixed inset-0 bg-black/40 hidden z-40"></div>
     <div id="drawerMembro" class="drawer fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-50 p-8 flex flex-col">
@@ -156,16 +161,11 @@
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('sistema').classList.remove('hidden');
 
-            // LÓGICA DE VISIBILIDADE DE BOTÕES ESPECIAIS
             const isPresidencia = userLogado.categoriasPermitidas?.includes("Presidência");
             const isAdmin = userLogado.nivel === 'admin';
 
-            if (isAdmin || isPresidencia) {
-                document.getElementById('btnExcel').classList.remove('hidden');
-            }
-            if (isAdmin) {
-                document.getElementById('adminGear').classList.remove('hidden');
-            }
+            if (isAdmin || isPresidencia) document.getElementById('btnExcel').classList.remove('hidden');
+            if (isAdmin) document.getElementById('adminGear').classList.remove('hidden');
 
             registrarLog("Login efetuado");
             carregarMembros();
@@ -184,8 +184,6 @@
                 document.getElementById('mEmail').value = "";
                 document.getElementById('mAnoEntrada').value = new Date().getFullYear();
                 
-                // Se for Presidência ou Admin, pode escolher qualquer um. 
-                // Se for User comum com categoria fixa, trava a categoria.
                 const isPresidencia = userLogado.categoriasPermitidas?.includes("Presidência");
                 const isAdmin = userLogado.nivel === 'admin';
 
@@ -226,16 +224,12 @@
             const snap = await getDocs(query(collection(db, "membros"), orderBy("nome", "asc")));
             const lista = document.getElementById('listaMembros');
             lista.innerHTML = "";
-            
             const isPresidencia = userLogado.categoriasPermitidas?.includes("Presidência");
             const isAdmin = userLogado.nivel === 'admin';
 
             snap.forEach(d => {
                 const m = d.data();
-                
-                // Filtro: Se for Admin ou Presidência, vê tudo. Se for User comum, vê só o dele.
                 if(!isAdmin && !isPresidencia && !userLogado.categoriasPermitidas?.includes(m.categoria)) return;
-
                 const inativo = m.status === 'Inativo';
                 lista.innerHTML += `
                 <tr class="hover:bg-gray-50 border-b ${inativo ? 'bg-red-50/50 opacity-60' : ''}">
@@ -287,7 +281,7 @@
                 const ws = XLSX.utils.json_to_sheet(dadosPorCat[cat]);
                 XLSX.utils.book_append_sheet(wb, ws, cat.substring(0, 30)); 
             });
-            XLSX.writeFile(wb, "Relatorio_Informa_Presidencia.xlsx");
+            XLSX.writeFile(wb, "Relatorio_Informa.xlsx");
         };
 
         window.abrirEdicaoMembro = async (id) => {
@@ -305,7 +299,6 @@
             });
         };
 
-        // ADMIN DE USUÁRIOS (SÓ ADMIN ACESSA)
         window.salvarUsuarioSistema = async () => {
             const id = document.getElementById('editUserId').value;
             const u = {
