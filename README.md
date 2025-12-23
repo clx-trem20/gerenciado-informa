@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -135,13 +134,17 @@
 
         const gridCats = document.getElementById('gridCategoriasPermitidas');
         const mCatSelect = document.getElementById('mCategoria');
+
+        // Inicializa Categorias no Form e no Admin
         mCatSelect.innerHTML = '<option value="">Selecione a Categoria</option>';
         listaCats.forEach(cat => {
             gridCats.innerHTML += `<label class="flex items-center space-x-2 text-[9px] font-bold text-gray-600 cursor-pointer"><input type="checkbox" name="catPermissao" value="${cat}" class="w-3 h-3 text-blue-600"><span>${cat}</span></label>`;
             mCatSelect.innerHTML += `<option value="${cat}">${cat}</option>`;
         });
 
-        async function registrarLog(acao) { await addDoc(collection(db, "logs"), { usuario: userLogado?.usuario || "Sistema", acao, data: serverTimestamp() }); }
+        async function registrarLog(acao) { 
+            await addDoc(collection(db, "logs"), { usuario: userLogado?.usuario || "Sistema", acao, data: serverTimestamp() }); 
+        }
 
         document.getElementById('btnLogin').onclick = async () => {
             const u = document.getElementById('loginUser').value;
@@ -151,29 +154,59 @@
             if (snap.empty) { document.getElementById('erro').innerText = "Credenciais inválidas"; return; }
             const userData = snap.docs[0].data();
             if (userData.status === "Inativo") { document.getElementById('erro').innerText = "BLOQUEADO!"; return; }
+            
             userLogado = userData;
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('sistema').classList.remove('hidden');
-            if (userLogado.nivel === 'admin' || userLogado.categoriasPermitidas?.includes("Presidência")) document.getElementById('btnExcel').classList.remove('hidden');
-            if (userLogado.nivel === 'admin') document.getElementById('adminGear').classList.remove('hidden');
+            
+            if (userLogado.nivel === 'admin' || userLogado.categoriasPermitidas?.includes("Presidência")) {
+                document.getElementById('btnExcel').classList.remove('hidden');
+            }
+            if (userLogado.nivel === 'admin') {
+                document.getElementById('adminGear').classList.remove('hidden');
+            }
+            
+            registrarLog("Login efetuado");
             carregarMembros();
         };
 
         document.getElementById('btnLogout').onclick = () => location.reload();
 
         window.abrirDrawerMembro = (id = null) => {
+            const selectCat = document.getElementById('mCategoria');
             document.getElementById('editMembroId').value = id || "";
             document.getElementById('drawerMembro').classList.add('open');
             document.getElementById('drawerOverlay').classList.remove('hidden');
+
+            const isPres = userLogado.categoriasPermitidas?.includes("Presidência");
+            const isAdmin = userLogado.nivel === 'admin';
+
+            // Reset campos se for novo
             if(!id) {
                 document.getElementById('mNome').value = ""; 
                 document.getElementById('mEmail').value = "";
                 document.getElementById('mTelefone').value = "";
                 document.getElementById('mAnoEntrada').value = new Date().getFullYear();
+                
+                // Filtra categorias que o usuário pode cadastrar
+                if (!isAdmin && !isPres && userLogado.categoriasPermitidas?.length === 1) {
+                    selectCat.value = userLogado.categoriasPermitidas[0];
+                    selectCat.disabled = true;
+                } else {
+                    selectCat.disabled = false;
+                    selectCat.value = "";
+                    Array.from(selectCat.options).forEach(opt => {
+                        if (isAdmin || isPres) opt.hidden = false;
+                        else opt.hidden = opt.value !== "" && !userLogado.categoriasPermitidas.includes(opt.value);
+                    });
+                }
             }
         };
 
-        window.fecharDrawerMembro = () => { document.getElementById('drawerMembro').classList.remove('open'); document.getElementById('drawerOverlay').classList.add('hidden'); };
+        window.fecharDrawerMembro = () => { 
+            document.getElementById('drawerMembro').classList.remove('open'); 
+            document.getElementById('drawerOverlay').classList.add('hidden'); 
+        };
 
         window.salvarMembroFirebase = async () => {
             const id = document.getElementById('editMembroId').value;
@@ -185,9 +218,17 @@
                 mesEntrada: document.getElementById('mMesEntrada').value, 
                 anoEntrada: document.getElementById('mAnoEntrada').value 
             };
+            
             if(!m.nome || !m.categoria) return alert("Nome e Categoria são obrigatórios!");
-            if(id) await updateDoc(doc(db, "membros", id), m);
-            else { m.status = "Ativo"; await addDoc(collection(db, "membros"), m); }
+
+            if(id) {
+                await updateDoc(doc(db, "membros", id), m);
+                registrarLog(`Editou membro: ${m.nome}`);
+            } else {
+                m.status = "Ativo"; 
+                await addDoc(collection(db, "membros"), m);
+                registrarLog(`Cadastrou novo membro: ${m.nome}`);
+            }
             fecharDrawerMembro(); carregarMembros();
         };
 
@@ -197,16 +238,22 @@
             lista.innerHTML = "";
             const isPres = userLogado.categoriasPermitidas?.includes("Presidência");
             const isAdmin = userLogado.nivel === 'admin';
+
             snap.forEach(d => {
                 const m = d.data();
                 if(!isAdmin && !isPres && !userLogado.categoriasPermitidas?.includes(m.categoria)) return;
+                
                 const inativo = m.status === 'Inativo';
                 lista.innerHTML += `
                 <tr class="hover:bg-gray-50 border-b ${inativo ? 'bg-red-50/50 opacity-60' : ''}">
                     <td class="px-6 py-4 font-bold text-gray-800">${m.nome}</td>
                     <td class="px-6 py-4"><span class="text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded border uppercase">${m.categoria}</span></td>
                     <td class="px-6 py-4 text-center text-[10px] font-bold text-gray-500">${m.mesEntrada.slice(0,3)}/${m.anoEntrada}</td>
-                    <td class="px-6 py-4 text-center"><button onclick="toggleStatusMembro('${d.id}', '${m.status}')" class="px-3 py-1 rounded-full text-[9px] font-black uppercase ${!inativo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${m.status || 'Ativo'}</button></td>
+                    <td class="px-6 py-4 text-center">
+                        <button onclick="toggleStatusMembro('${d.id}', '${m.status}')" class="px-3 py-1 rounded-full text-[9px] font-black uppercase ${!inativo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                            ${m.status || 'Ativo'}
+                        </button>
+                    </td>
                     <td class="px-6 py-4 text-center space-x-2 text-lg">
                         <button onclick="enviarComunicacao('whatsapp', '${m.telefone}', '${m.nome}', '${m.status || 'Ativo'}', '${m.email}')" title="WhatsApp">💬</button>
                         <button onclick="enviarComunicacao('email', '${m.telefone}', '${m.nome}', '${m.status || 'Ativo'}', '${m.email}')" title="E-mail">✉️</button>
@@ -219,35 +266,50 @@
 
         window.enviarComunicacao = (tipo, fone, nome, status, email) => {
             let msg = "";
+            let assunto = "";
             if (status === "Ativo") {
-                msg = `Olá, ${nome}!\n\nInformamos que, após 3 meses de estágio, você foi efetivada no Informa.\n\nDurante esse período, apresentou desempenho consistente, comprometimento e responsabilidade, atendendo às expectativas da função.\n\nParabenizamos pela efetivação e desejamos sucesso e crescimento contínuo nesta nova etapa.\n\nAtenciosamente,\nEquipe de Gestão – Jornal Informa\n© 2025 – Criado por CLX`;
+                assunto = "Parabéns pela Efetivação - Jornal Informa";
+                msg = `Informamos que, após 3 meses de estágio, você foi efetivada no Informa.\n\nDurante esse período, apresentou desempenho consistente, comprometimento e responsabilidade, atendendo às expectativas da função.\n\nParabenizamos pela efetivação e desejamos sucesso e crescimento contínuo nesta nova etapa.\n\nAtenciosamente,\nEquipe de Gestão – Jornal Informa\n© 2025 – Criado por CLX`;
             } else {
-                msg = `Olá, ${nome}.\n\nInformamos que, após o período de 3 meses de estágio, a efetivação não foi possível neste momento.\n\nAgradecemos pelo empenho e dedicação demonstrados durante esse período.\n\nDesejamos sucesso em seus próximos passos e ficamos à disposição para futuras oportunidades.\n\nAtenciosamente,\nEquipe de Gestão – Jornal Informa\n© 2025 – Criado por CLX`;
+                assunto = "Comunicado de Estágio - Jornal Informa";
+                msg = `Informamos que, após o período de 3 meses de estágio, a efetivação não foi possível neste momento.\n\nAgradecemos pelo empenho e dedicação demonstrados durante esse período.\n\nDesejamos sucesso em seus próximos passos e ficamos à disposição para futuras oportunidades.\n\nAtenciosamente,\nEquipe de Gestão – Jornal Informa\n© 2025 – Criado por CLX`;
             }
+
+            const textoFinal = `Olá, ${nome}!\n\n${msg}`;
 
             if (tipo === 'email') {
                 if(!email) return alert("E-mail não cadastrado.");
-                const assunto = status === "Ativo" ? "Parabéns pela Efetivação" : "Comunicado de Estágio";
-                window.location.href = `mailto:${email}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(msg)}`;
+                window.location.href = `mailto:${email}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(textoFinal)}`;
             } else {
-                if(!fone) {
-                    fone = prompt("Telefone não encontrado. Digite com DDD (apenas números):", "55");
-                }
-                if(fone) {
-                    const limpo = fone.replace(/\D/g, '');
-                    window.open(`https://api.whatsapp.com/send?phone=${limpo}&text=${encodeURIComponent(msg)}`, '_blank');
-                }
+                if(!fone) return alert("Telefone não cadastrado.");
+                const limpo = fone.replace(/\D/g, '');
+                window.open(`https://api.whatsapp.com/send?phone=${limpo}&text=${encodeURIComponent(textoFinal)}`, '_blank');
             }
         };
 
-        window.toggleStatusMembro = async (id, status) => { await updateDoc(doc(db, "membros", id), { status: status === 'Inativo' ? 'Ativo' : 'Inativo' }); carregarMembros(); };
-        window.excluirMembro = async (id, nome) => { if(confirm(`Excluir permanentemente ${nome}?`)) { await deleteDoc(doc(db, "membros", id)); carregarMembros(); } };
+        window.toggleStatusMembro = async (id, status) => { 
+            const novoStatus = status === 'Inativo' ? 'Ativo' : 'Inativo';
+            await updateDoc(doc(db, "membros", id), { status: novoStatus }); 
+            carregarMembros(); 
+        };
+
+        window.excluirMembro = async (id, nome) => { 
+            if(confirm(`Excluir permanentemente ${nome}?`)) { 
+                await deleteDoc(doc(db, "membros", id)); 
+                registrarLog(`Excluiu membro: ${nome}`);
+                carregarMembros(); 
+            } 
+        };
         
         window.exportarExcelPorCategoria = async () => {
             const snap = await getDocs(collection(db, "membros"));
             const wb = XLSX.utils.book_new();
             const dados = {};
-            snap.forEach(d => { const m = d.data(); if(!dados[m.categoria]) dados[m.categoria] = []; dados[m.categoria].push({"Nome": m.nome, "Telefone": m.telefone, "E-mail": m.email, "Status": m.status || "Ativo"}); });
+            snap.forEach(d => { 
+                const m = d.data(); 
+                if(!dados[m.categoria]) dados[m.categoria] = []; 
+                dados[m.categoria].push({"Nome": m.nome, "Telefone": m.telefone, "E-mail": m.email, "Entrada": `${m.mesEntrada}/${m.anoEntrada}`, "Status": m.status || "Ativo"}); 
+            });
             Object.keys(dados).forEach(c => XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dados[c]), c.substring(0,30)));
             XLSX.writeFile(wb, "Equipe_Informa.xlsx");
         };
@@ -256,7 +318,8 @@
             const snap = await getDocs(collection(db, "membros"));
             snap.forEach(d => {
                 if(d.id === id) {
-                    const m = d.data(); abrirDrawerMembro(id);
+                    const m = d.data(); 
+                    abrirDrawerMembro(id);
                     document.getElementById('mNome').value = m.nome; 
                     document.getElementById('mEmail').value = m.email;
                     document.getElementById('mTelefone').value = m.telefone || "";
@@ -267,28 +330,85 @@
             });
         };
 
+        // ADMIN DE USUÁRIOS
         window.salvarUsuarioSistema = async () => {
             const id = document.getElementById('editUserId').value;
-            const u = { usuario: document.getElementById('accUser').value, senha: document.getElementById('accPass').value, nivel: document.getElementById('accNivel').value, categoriasPermitidas: Array.from(document.querySelectorAll('input[name="catPermissao"]:checked')).map(c => c.value) };
-            if(id) await updateDoc(doc(db, "usuarios", id), u); else { u.status = "Ativo"; await addDoc(collection(db, "usuarios"), u); }
+            const u = { 
+                usuario: document.getElementById('accUser').value, 
+                senha: document.getElementById('accPass').value, 
+                nivel: document.getElementById('accNivel').value, 
+                categoriasPermitidas: Array.from(document.querySelectorAll('input[name="catPermissao"]:checked')).map(c => c.value) 
+            };
+            if(!u.usuario || !u.senha) return alert("Login e Senha obrigatórios.");
+            
+            if(id) {
+                await updateDoc(doc(db, "usuarios", id), u);
+                registrarLog(`Editou acesso: ${u.usuario}`);
+            } else { 
+                u.status = "Ativo"; 
+                await addDoc(collection(db, "usuarios"), u); 
+                registrarLog(`Criou acesso: ${u.usuario}`);
+            }
+            
+            // Limpa form
+            document.getElementById('editUserId').value = "";
+            document.getElementById('accUser').value = "";
+            document.getElementById('accPass').value = "";
+            document.querySelectorAll('input[name="catPermissao"]').forEach(c => c.checked = false);
             carregarLogins();
         };
 
         window.carregarLogins = async () => {
             const snap = await getDocs(collection(db, "usuarios"));
-            const lista = document.getElementById('listaAcessos'); lista.innerHTML = "";
-            snap.forEach(d => { const u = d.data(); lista.innerHTML += `<div class="flex justify-between p-3 border rounded-2xl bg-white text-[10px] font-bold items-center"><span>${u.usuario.toUpperCase()}</span><div class="space-x-2"><button onclick="toggleStatusUser('${d.id}', '${u.status}')" class="px-2 py-1 rounded ${u.status === 'Inativo' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}">${u.status || 'Ativo'}</button><button onclick="removerAcc('${d.id}')" class="text-gray-400">🗑️</button></div></div>`; });
+            const lista = document.getElementById('listaAcessos'); 
+            lista.innerHTML = "";
+            snap.forEach(d => { 
+                const u = d.data(); 
+                const b = u.status === 'Inativo';
+                lista.innerHTML += `
+                <div class="flex justify-between p-3 border rounded-2xl bg-white text-[10px] font-bold items-center ${b ? 'opacity-50' : ''}">
+                    <span>${u.usuario.toUpperCase()} (${u.nivel})</span>
+                    <div class="space-x-2">
+                        <button onclick="toggleStatusUser('${d.id}', '${u.status}')" class="px-2 py-1 rounded ${b ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}">${u.status || 'Ativo'}</button>
+                        <button onclick="removerAcc('${d.id}')" class="text-gray-400">🗑️</button>
+                    </div>
+                </div>`; 
+            });
         };
 
-        window.toggleStatusUser = async (id, status) => { await updateDoc(doc(db, "usuarios", id), { status: status === "Inativo" ? "Ativo" : "Inativo" }); carregarLogins(); };
-        window.removerAcc = async (id) => { if(confirm("Excluir?")) { await deleteDoc(doc(db, "usuarios", id)); carregarLogins(); } };
-        window.switchTab = (t) => { document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); document.getElementById(`content-${t}`).classList.add('active'); if(t==='logs') carregarLogs(); };
+        window.toggleStatusUser = async (id, status) => { 
+            await updateDoc(doc(db, "usuarios", id), { status: status === "Inativo" ? "Ativo" : "Inativo" }); 
+            carregarLogins(); 
+        };
+
+        window.removerAcc = async (id) => { 
+            if(confirm("Excluir este acesso?")) { 
+                await deleteDoc(doc(db, "usuarios", id)); 
+                carregarLogins(); 
+            } 
+        };
+
+        window.switchTab = (t) => { 
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); 
+            document.getElementById(`content-${t}`).classList.add('active'); 
+            if(t==='logs') carregarLogs(); 
+        };
+
         window.carregarLogs = async () => {
             const snap = await getDocs(query(collection(db, "logs"), orderBy("data", "desc")));
-            const lista = document.getElementById('listaLogs'); lista.innerHTML = "";
-            snap.forEach(d => { const l = d.data(); lista.innerHTML += `<div class="p-1 border-b border-white/10">[${l.data?.toDate().toLocaleString()}] ${l.usuario}: ${l.acao}</div>`; });
+            const lista = document.getElementById('listaLogs'); 
+            lista.innerHTML = "";
+            snap.forEach(d => { 
+                const l = d.data(); 
+                lista.innerHTML += `<div class="p-1 border-b border-white/10">[${l.data?.toDate().toLocaleString()}] ${l.usuario}: ${l.acao}</div>`; 
+            });
         };
-        document.getElementById('adminGear').onclick = () => { document.getElementById('modalAdmin').classList.add('open'); carregarLogins(); };
+
+        document.getElementById('adminGear').onclick = () => { 
+            document.getElementById('modalAdmin').classList.add('open'); 
+            carregarLogins(); 
+        };
+        
         window.fecharAdmin = () => document.getElementById('modalAdmin').classList.remove('open');
     </script>
 </body>
