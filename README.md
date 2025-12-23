@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -135,7 +136,6 @@
         const gridCats = document.getElementById('gridCategoriasPermitidas');
         const mCatSelect = document.getElementById('mCategoria');
 
-        // Inicializa Categorias no Form e no Admin
         mCatSelect.innerHTML = '<option value="">Selecione a Categoria</option>';
         listaCats.forEach(cat => {
             gridCats.innerHTML += `<label class="flex items-center space-x-2 text-[9px] font-bold text-gray-600 cursor-pointer"><input type="checkbox" name="catPermissao" value="${cat}" class="w-3 h-3 text-blue-600"><span>${cat}</span></label>`;
@@ -181,20 +181,20 @@
             const isPres = userLogado.categoriasPermitidas?.includes("Presidência");
             const isAdmin = userLogado.nivel === 'admin';
 
-            // Reset campos se for novo
             if(!id) {
                 document.getElementById('mNome').value = ""; 
                 document.getElementById('mEmail').value = "";
                 document.getElementById('mTelefone').value = "";
                 document.getElementById('mAnoEntrada').value = new Date().getFullYear();
                 
-                // Filtra categorias que o usuário pode cadastrar
+                // Trava de Categoria para usuários limitados
                 if (!isAdmin && !isPres && userLogado.categoriasPermitidas?.length === 1) {
                     selectCat.value = userLogado.categoriasPermitidas[0];
                     selectCat.disabled = true;
                 } else {
                     selectCat.disabled = false;
                     selectCat.value = "";
+                    // Filtra o select para mostrar apenas o que o user tem acesso
                     Array.from(selectCat.options).forEach(opt => {
                         if (isAdmin || isPres) opt.hidden = false;
                         else opt.hidden = opt.value !== "" && !userLogado.categoriasPermitidas.includes(opt.value);
@@ -210,9 +210,10 @@
 
         window.salvarMembroFirebase = async () => {
             const id = document.getElementById('editMembroId').value;
+            const selectCat = document.getElementById('mCategoria');
             const m = { 
                 nome: document.getElementById('mNome').value, 
-                categoria: document.getElementById('mCategoria').value, 
+                categoria: selectCat.value, 
                 email: document.getElementById('mEmail').value, 
                 telefone: document.getElementById('mTelefone').value,
                 mesEntrada: document.getElementById('mMesEntrada').value, 
@@ -241,6 +242,7 @@
 
             snap.forEach(d => {
                 const m = d.data();
+                // Filtro de Visualização: Admin/Presidência vê tudo, outros só o próprio setor
                 if(!isAdmin && !isPres && !userLogado.categoriasPermitidas?.includes(m.categoria)) return;
                 
                 const inativo = m.status === 'Inativo';
@@ -269,7 +271,7 @@
             let assunto = "";
             if (status === "Ativo") {
                 assunto = "Parabéns pela Efetivação - Jornal Informa";
-                msg = `Informamos que, após 3 meses de estágio, você foi efetivada no Informa.\n\nDurante esse período, apresentou desempenho consistente, comprometimento e responsabilidade, atendendo às expectativas da função.\n\nParabenizamos pela efetivação e desejamos sucesso e crescimento contínuo nesta nova etapa.\n\nAtenciosamente,\nEquipe de Gestão – Jornal Informa\n© 2025 – Criado por CLX`;
+                msg = `Informamos que, após o período de 3 meses de estágio, sua efetivação foi concluída no Informa.\n\nDurante esse período, você apresentou desempenho consistente, comprometimento e responsabilidade, atendendo às expectativas da função.\n\nParabenizamos por este passo e desejamos sucesso e crescimento contínuo nesta nova etapa.\n\nAtenciosamente,\nEquipe de Gestão – Jornal Informa\n© 2025 – Criado por CLX`;
             } else {
                 assunto = "Comunicado de Estágio - Jornal Informa";
                 msg = `Informamos que, após o período de 3 meses de estágio, a efetivação não foi possível neste momento.\n\nAgradecemos pelo empenho e dedicação demonstrados durante esse período.\n\nDesejamos sucesso em seus próximos passos e ficamos à disposição para futuras oportunidades.\n\nAtenciosamente,\nEquipe de Gestão – Jornal Informa\n© 2025 – Criado por CLX`;
@@ -288,8 +290,8 @@
         };
 
         window.toggleStatusMembro = async (id, status) => { 
-            const novoStatus = status === 'Inativo' ? 'Ativo' : 'Inativo';
-            await updateDoc(doc(db, "membros", id), { status: novoStatus }); 
+            const nS = status === 'Inativo' ? 'Ativo' : 'Inativo';
+            await updateDoc(doc(db, "membros", id), { status: nS }); 
             carregarMembros(); 
         };
 
@@ -330,7 +332,6 @@
             });
         };
 
-        // ADMIN DE USUÁRIOS
         window.salvarUsuarioSistema = async () => {
             const id = document.getElementById('editUserId').value;
             const u = { 
@@ -340,21 +341,7 @@
                 categoriasPermitidas: Array.from(document.querySelectorAll('input[name="catPermissao"]:checked')).map(c => c.value) 
             };
             if(!u.usuario || !u.senha) return alert("Login e Senha obrigatórios.");
-            
-            if(id) {
-                await updateDoc(doc(db, "usuarios", id), u);
-                registrarLog(`Editou acesso: ${u.usuario}`);
-            } else { 
-                u.status = "Ativo"; 
-                await addDoc(collection(db, "usuarios"), u); 
-                registrarLog(`Criou acesso: ${u.usuario}`);
-            }
-            
-            // Limpa form
-            document.getElementById('editUserId').value = "";
-            document.getElementById('accUser').value = "";
-            document.getElementById('accPass').value = "";
-            document.querySelectorAll('input[name="catPermissao"]').forEach(c => c.checked = false);
+            if(id) await updateDoc(doc(db, "usuarios", id), u); else { u.status = "Ativo"; await addDoc(collection(db, "usuarios"), u); }
             carregarLogins();
         };
 
@@ -364,51 +351,19 @@
             lista.innerHTML = "";
             snap.forEach(d => { 
                 const u = d.data(); 
-                const b = u.status === 'Inativo';
-                lista.innerHTML += `
-                <div class="flex justify-between p-3 border rounded-2xl bg-white text-[10px] font-bold items-center ${b ? 'opacity-50' : ''}">
-                    <span>${u.usuario.toUpperCase()} (${u.nivel})</span>
-                    <div class="space-x-2">
-                        <button onclick="toggleStatusUser('${d.id}', '${u.status}')" class="px-2 py-1 rounded ${b ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}">${u.status || 'Ativo'}</button>
-                        <button onclick="removerAcc('${d.id}')" class="text-gray-400">🗑️</button>
-                    </div>
-                </div>`; 
+                lista.innerHTML += `<div class="flex justify-between p-3 border rounded-2xl bg-white text-[10px] font-bold items-center"><span>${u.usuario.toUpperCase()}</span><div class="space-x-2"><button onclick="toggleStatusUser('${d.id}', '${u.status}')" class="px-2 py-1 rounded ${u.status === 'Inativo' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}">${u.status || 'Ativo'}</button><button onclick="removerAcc('${d.id}')" class="text-gray-400">🗑️</button></div></div>`; 
             });
         };
 
-        window.toggleStatusUser = async (id, status) => { 
-            await updateDoc(doc(db, "usuarios", id), { status: status === "Inativo" ? "Ativo" : "Inativo" }); 
-            carregarLogins(); 
-        };
-
-        window.removerAcc = async (id) => { 
-            if(confirm("Excluir este acesso?")) { 
-                await deleteDoc(doc(db, "usuarios", id)); 
-                carregarLogins(); 
-            } 
-        };
-
-        window.switchTab = (t) => { 
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); 
-            document.getElementById(`content-${t}`).classList.add('active'); 
-            if(t==='logs') carregarLogs(); 
-        };
-
+        window.toggleStatusUser = async (id, status) => { await updateDoc(doc(db, "usuarios", id), { status: status === "Inativo" ? "Ativo" : "Inativo" }); carregarLogins(); };
+        window.removerAcc = async (id) => { if(confirm("Excluir?")) { await deleteDoc(doc(db, "usuarios", id)); carregarLogins(); } };
+        window.switchTab = (t) => { document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); document.getElementById(`content-${t}`).classList.add('active'); if(t==='logs') carregarLogs(); };
         window.carregarLogs = async () => {
             const snap = await getDocs(query(collection(db, "logs"), orderBy("data", "desc")));
-            const lista = document.getElementById('listaLogs'); 
-            lista.innerHTML = "";
-            snap.forEach(d => { 
-                const l = d.data(); 
-                lista.innerHTML += `<div class="p-1 border-b border-white/10">[${l.data?.toDate().toLocaleString()}] ${l.usuario}: ${l.acao}</div>`; 
-            });
+            const lista = document.getElementById('listaLogs'); lista.innerHTML = "";
+            snap.forEach(d => { const l = d.data(); lista.innerHTML += `<div class="p-1 border-b border-white/10">[${l.data?.toDate().toLocaleString()}] ${l.usuario}: ${l.acao}</div>`; });
         };
-
-        document.getElementById('adminGear').onclick = () => { 
-            document.getElementById('modalAdmin').classList.add('open'); 
-            carregarLogins(); 
-        };
-        
+        document.getElementById('adminGear').onclick = () => { document.getElementById('modalAdmin').classList.add('open'); carregarLogins(); };
         window.fecharAdmin = () => document.getElementById('modalAdmin').classList.remove('open');
     </script>
 </body>
