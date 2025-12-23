@@ -73,6 +73,7 @@
             <input id="mNome" placeholder="Nome Completo" class="w-full p-4 border rounded-2xl bg-gray-50 outline-blue-600 font-medium">
             <select id="mCategoria" class="w-full p-4 border rounded-2xl bg-gray-50 outline-blue-600 font-medium"></select>
             <input id="mEmail" type="email" placeholder="E-mail" class="w-full p-4 border rounded-2xl bg-gray-50 outline-blue-600">
+            <input id="mTelefone" type="text" placeholder="WhatsApp (DDD + Número)" class="w-full p-4 border rounded-2xl bg-gray-50 outline-blue-600">
             <div class="grid grid-cols-2 gap-3">
                 <select id="mMesEntrada" class="p-4 border rounded-2xl bg-gray-50 outline-blue-600">
                     <option value="Janeiro">Janeiro</option><option value="Fevereiro">Fevereiro</option><option value="Março">Março</option>
@@ -91,9 +92,8 @@
             <button onclick="fecharAdmin()" class="absolute top-4 right-6 text-2xl font-bold">&times;</button>
             <div class="flex space-x-6 border-b mb-6 uppercase text-[10px] font-black tracking-widest">
                 <button onclick="switchTab('usuarios')" class="pb-2 text-blue-600 border-b-2 border-blue-600">Acessos</button>
-                <button onclick="switchTab('logs')" class="pb-2 text-gray-400">Logs do Sistema</button>
+                <button onclick="switchTab('logs')" class="pb-2 text-gray-400">Logs</button>
             </div>
-            
             <div id="content-usuarios" class="tab-content active overflow-y-auto pr-2">
                 <div class="bg-blue-50 p-6 rounded-3xl mb-6">
                     <input type="hidden" id="editUserId">
@@ -101,16 +101,14 @@
                         <input id="accUser" placeholder="Login" class="p-3 rounded-xl border font-bold uppercase text-xs">
                         <input id="accPass" type="password" placeholder="Senha" class="p-3 rounded-xl border font-bold">
                         <select id="accNivel" class="p-3 rounded-xl border font-bold text-xs uppercase">
-                            <option value="user">User (Restrito)</option>
-                            <option value="admin">Admin (Total)</option>
+                            <option value="user">User</option><option value="admin">Admin</option>
                         </select>
                     </div>
                     <div id="gridCategoriasPermitidas" class="grid grid-cols-2 md:grid-cols-5 gap-2 bg-white p-4 rounded-2xl border mb-4"></div>
-                    <button onclick="salvarUsuarioSistema()" class="w-full bg-blue-600 text-white rounded-xl font-bold py-3 shadow-lg uppercase">Salvar Acesso</button>
+                    <button onclick="salvarUsuarioSistema()" class="w-full bg-blue-600 text-white rounded-xl font-bold py-3 uppercase">Salvar Acesso</button>
                 </div>
                 <div id="listaAcessos" class="space-y-2"></div>
             </div>
-
             <div id="content-logs" class="tab-content overflow-y-auto">
                 <div id="listaLogs" class="space-y-1 text-[10px] font-mono bg-slate-900 text-green-400 p-4 rounded-xl"></div>
             </div>
@@ -138,15 +136,12 @@
         const gridCats = document.getElementById('gridCategoriasPermitidas');
         const mCatSelect = document.getElementById('mCategoria');
         mCatSelect.innerHTML = '<option value="">Selecione a Categoria</option>';
-        
         listaCats.forEach(cat => {
             gridCats.innerHTML += `<label class="flex items-center space-x-2 text-[9px] font-bold text-gray-600 cursor-pointer"><input type="checkbox" name="catPermissao" value="${cat}" class="w-3 h-3 text-blue-600"><span>${cat}</span></label>`;
             mCatSelect.innerHTML += `<option value="${cat}">${cat}</option>`;
         });
 
-        async function registrarLog(acao) {
-            await addDoc(collection(db, "logs"), { usuario: userLogado?.usuario || "Sistema", acao, data: serverTimestamp() });
-        }
+        async function registrarLog(acao) { await addDoc(collection(db, "logs"), { usuario: userLogado?.usuario || "Sistema", acao, data: serverTimestamp() }); }
 
         document.getElementById('btnLogin').onclick = async () => {
             const u = document.getElementById('loginUser').value;
@@ -155,74 +150,44 @@
             const snap = await getDocs(q);
             if (snap.empty) { document.getElementById('erro').innerText = "Credenciais inválidas"; return; }
             const userData = snap.docs[0].data();
-            if (userData.status === "Inativo") { document.getElementById('erro').innerText = "ACESSO BLOQUEADO!"; return; }
-            
+            if (userData.status === "Inativo") { document.getElementById('erro').innerText = "BLOQUEADO!"; return; }
             userLogado = userData;
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('sistema').classList.remove('hidden');
-
-            const isPresidencia = userLogado.categoriasPermitidas?.includes("Presidência");
-            const isAdmin = userLogado.nivel === 'admin';
-
-            if (isAdmin || isPresidencia) document.getElementById('btnExcel').classList.remove('hidden');
-            if (isAdmin) document.getElementById('adminGear').classList.remove('hidden');
-
-            registrarLog("Login efetuado");
+            if (userLogado.nivel === 'admin' || userLogado.categoriasPermitidas?.includes("Presidência")) document.getElementById('btnExcel').classList.remove('hidden');
+            if (userLogado.nivel === 'admin') document.getElementById('adminGear').classList.remove('hidden');
             carregarMembros();
         };
 
         document.getElementById('btnLogout').onclick = () => location.reload();
 
         window.abrirDrawerMembro = (id = null) => {
-            const selectCat = document.getElementById('mCategoria');
             document.getElementById('editMembroId').value = id || "";
             document.getElementById('drawerMembro').classList.add('open');
             document.getElementById('drawerOverlay').classList.remove('hidden');
-
             if(!id) {
                 document.getElementById('mNome').value = ""; 
                 document.getElementById('mEmail').value = "";
+                document.getElementById('mTelefone').value = "";
                 document.getElementById('mAnoEntrada').value = new Date().getFullYear();
-                
-                const isPresidencia = userLogado.categoriasPermitidas?.includes("Presidência");
-                const isAdmin = userLogado.nivel === 'admin';
-
-                if (!isAdmin && !isPresidencia && userLogado.categoriasPermitidas?.length === 1) {
-                    selectCat.value = userLogado.categoriasPermitidas[0];
-                    selectCat.disabled = true;
-                } else {
-                    selectCat.disabled = false;
-                    selectCat.value = "";
-                    Array.from(selectCat.options).forEach(opt => {
-                        if (isAdmin || isPresidencia) opt.hidden = false;
-                        else opt.hidden = opt.value !== "" && !userLogado.categoriasPermitidas.includes(opt.value);
-                    });
-                }
             }
         };
 
-        window.fecharDrawerMembro = () => {
-            document.getElementById('drawerMembro').classList.remove('open');
-            document.getElementById('drawerOverlay').classList.add('hidden');
-        };
+        window.fecharDrawerMembro = () => { document.getElementById('drawerMembro').classList.remove('open'); document.getElementById('drawerOverlay').classList.add('hidden'); };
 
         window.salvarMembroFirebase = async () => {
             const id = document.getElementById('editMembroId').value;
-            const m = {
-                nome: document.getElementById('mNome').value,
-                categoria: document.getElementById('mCategoria').value,
-                email: document.getElementById('mEmail').value,
-                mesEntrada: document.getElementById('mMesEntrada').value,
-                anoEntrada: document.getElementById('mAnoEntrada').value
+            const m = { 
+                nome: document.getElementById('mNome').value, 
+                categoria: document.getElementById('mCategoria').value, 
+                email: document.getElementById('mEmail').value, 
+                telefone: document.getElementById('mTelefone').value,
+                mesEntrada: document.getElementById('mMesEntrada').value, 
+                anoEntrada: document.getElementById('mAnoEntrada').value 
             };
-            if(id) {
-                await updateDoc(doc(db, "membros", id), m);
-                registrarLog(`Editou membro: ${m.nome}`);
-            } else {
-                m.status = "Ativo"; 
-                await addDoc(collection(db, "membros"), m);
-                registrarLog(`Novo membro: ${m.nome}`);
-            }
+            if(!m.nome || !m.categoria) return alert("Nome e Categoria são obrigatórios!");
+            if(id) await updateDoc(doc(db, "membros", id), m);
+            else { m.status = "Ativo"; await addDoc(collection(db, "membros"), m); }
             fecharDrawerMembro(); carregarMembros();
         };
 
@@ -230,168 +195,99 @@
             const snap = await getDocs(query(collection(db, "membros"), orderBy("nome", "asc")));
             const lista = document.getElementById('listaMembros');
             lista.innerHTML = "";
-            const isPresidencia = userLogado.categoriasPermitidas?.includes("Presidência");
+            const isPres = userLogado.categoriasPermitidas?.includes("Presidência");
             const isAdmin = userLogado.nivel === 'admin';
-
             snap.forEach(d => {
                 const m = d.data();
-                if(!isAdmin && !isPresidencia && !userLogado.categoriasPermitidas?.includes(m.categoria)) return;
+                if(!isAdmin && !isPres && !userLogado.categoriasPermitidas?.includes(m.categoria)) return;
                 const inativo = m.status === 'Inativo';
                 lista.innerHTML += `
                 <tr class="hover:bg-gray-50 border-b ${inativo ? 'bg-red-50/50 opacity-60' : ''}">
                     <td class="px-6 py-4 font-bold text-gray-800">${m.nome}</td>
                     <td class="px-6 py-4"><span class="text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded border uppercase">${m.categoria}</span></td>
                     <td class="px-6 py-4 text-center text-[10px] font-bold text-gray-500">${m.mesEntrada.slice(0,3)}/${m.anoEntrada}</td>
-                    <td class="px-6 py-4 text-center">
-                        <button onclick="toggleStatusMembro('${d.id}', '${m.status}')" class="px-3 py-1 rounded-full text-[9px] font-black uppercase ${!inativo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
-                            ${m.status || 'Ativo'}
-                        </button>
-                    </td>
-                    <td class="px-6 py-4 text-center space-x-3 text-lg">
-                        <button onclick="enviarEmailInteligente('${m.email}', '${m.nome}', '${m.categoria}', '${m.status || 'Ativo'}')" title="Enviar E-mail">✉️</button>
+                    <td class="px-6 py-4 text-center"><button onclick="toggleStatusMembro('${d.id}', '${m.status}')" class="px-3 py-1 rounded-full text-[9px] font-black uppercase ${!inativo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${m.status || 'Ativo'}</button></td>
+                    <td class="px-6 py-4 text-center space-x-2 text-lg">
+                        <button onclick="enviarComunicacao('whatsapp', '${m.telefone}', '${m.nome}', '${m.status || 'Ativo'}', '${m.email}')" title="WhatsApp">💬</button>
+                        <button onclick="enviarComunicacao('email', '${m.telefone}', '${m.nome}', '${m.status || 'Ativo'}', '${m.email}')" title="E-mail">✉️</button>
                         <button onclick="abrirEdicaoMembro('${d.id}')" title="Editar">✏️</button>
-                        <button onclick="excluirMembroMembro('${d.id}', '${m.nome}')" class="text-red-500" title="Excluir">🗑️</button>
+                        <button onclick="excluirMembro('${d.id}', '${m.nome}')" class="text-red-500" title="Excluir">🗑️</button>
                     </td>
                 </tr>`;
             });
         };
 
-        window.enviarEmailInteligente = (email, nome, categoria, status) => {
-            if(!email) return alert("E-mail não cadastrado.");
-            let assunto = "";
-            let mensagem = "";
-
+        window.enviarComunicacao = (tipo, fone, nome, status, email) => {
+            let msg = "";
             if (status === "Ativo") {
-                assunto = encodeURIComponent(`Parabéns! Você agora é Colaborador Oficial - Jornal Informa`);
-                mensagem = `Olá, ${nome}.\n\nÉ com muita alegria que comunicamos sua efetivação como COLABORADOR oficial do Jornal Informa no setor de ${categoria}!\n\nApós concluir seu período de 3 meses de estágio, sua dedicação foi reconhecida. Seja bem-vindo(a) permanentemente à equipe!\n\nAvante,\nEquipe de Gestão – Jornal Informa\n© 2025 – Gerado via Sistema CLX`;
+                msg = `Olá, ${nome}!\n\nInformamos que, após 3 meses de estágio, você foi efetivada no Informa.\n\nDurante esse período, apresentou desempenho consistente, comprometimento e responsabilidade, atendendo às expectativas da função.\n\nParabenizamos pela efetivação e desejamos sucesso e crescimento contínuo nesta nova etapa.\n\nAtenciosamente,\nEquipe de Gestão – Jornal Informa\n© 2025 – Criado por CLX`;
             } else {
-                assunto = encodeURIComponent(`Agradecimento e Encerramento de Ciclo - Jornal Informa`);
-                mensagem = `Olá, ${nome}.\n\nEscrevemos para agradecer imensamente pelo tempo e dedicação durante seu período de estágio em ${categoria}.\n\nInformamos que seu ciclo conosco se encerra agora. Desejamos muito sucesso em sua trajetória profissional.\n\nAtenciosamente,\nEquipe de Gestão – Jornal Informa\n© 2025 – Gerado via Sistema CLX`;
+                msg = `Olá, ${nome}.\n\nInformamos que, após o período de 3 meses de estágio, a efetivação não foi possível neste momento.\n\nAgradecemos pelo empenho e dedicação demonstrados durante esse período.\n\nDesejamos sucesso em seus próximos passos e ficamos à disposição para futuras oportunidades.\n\nAtenciosamente,\nEquipe de Gestão – Jornal Informa\n© 2025 – Criado por CLX`;
             }
-            window.location.href = `mailto:${email}?subject=${assunto}&body=${encodeURIComponent(mensagem)}`;
-        };
 
-        window.toggleStatusMembro = async (id, status) => {
-            const novo = status === 'Inativo' ? 'Ativo' : 'Inativo';
-            await updateDoc(doc(db, "membros", id), { status: novo });
-            carregarMembros();
-        };
-
-        window.excluirMembroMembro = async (id, nome) => {
-            if(confirm(`Excluir permanentemente ${nome}?`)) {
-                await deleteDoc(doc(db, "membros", id));
-                registrarLog(`Excluiu membro: ${nome}`);
-                carregarMembros();
+            if (tipo === 'email') {
+                if(!email) return alert("E-mail não cadastrado.");
+                const assunto = status === "Ativo" ? "Parabéns pela Efetivação" : "Comunicado de Estágio";
+                window.location.href = `mailto:${email}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(msg)}`;
+            } else {
+                if(!fone) {
+                    fone = prompt("Telefone não encontrado. Digite com DDD (apenas números):", "55");
+                }
+                if(fone) {
+                    const limpo = fone.replace(/\D/g, '');
+                    window.open(`https://api.whatsapp.com/send?phone=${limpo}&text=${encodeURIComponent(msg)}`, '_blank');
+                }
             }
         };
 
+        window.toggleStatusMembro = async (id, status) => { await updateDoc(doc(db, "membros", id), { status: status === 'Inativo' ? 'Ativo' : 'Inativo' }); carregarMembros(); };
+        window.excluirMembro = async (id, nome) => { if(confirm(`Excluir permanentemente ${nome}?`)) { await deleteDoc(doc(db, "membros", id)); carregarMembros(); } };
+        
         window.exportarExcelPorCategoria = async () => {
             const snap = await getDocs(collection(db, "membros"));
-            const dadosPorCat = {};
-            snap.forEach(d => {
-                const m = d.data();
-                if (!dadosPorCat[m.categoria]) dadosPorCat[m.categoria] = [];
-                dadosPorCat[m.categoria].push({ "Nome": m.nome, "E-mail": m.email, "Entrada": `${m.mesEntrada}/${m.anoEntrada}`, "Status": m.status || "Ativo" });
-            });
             const wb = XLSX.utils.book_new();
-            Object.keys(dadosPorCat).forEach(cat => {
-                const ws = XLSX.utils.json_to_sheet(dadosPorCat[cat]);
-                XLSX.utils.book_append_sheet(wb, ws, cat.substring(0, 30)); 
-            });
-            XLSX.writeFile(wb, "Relatorio_Informa.xlsx");
+            const dados = {};
+            snap.forEach(d => { const m = d.data(); if(!dados[m.categoria]) dados[m.categoria] = []; dados[m.categoria].push({"Nome": m.nome, "Telefone": m.telefone, "E-mail": m.email, "Status": m.status || "Ativo"}); });
+            Object.keys(dados).forEach(c => XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dados[c]), c.substring(0,30)));
+            XLSX.writeFile(wb, "Equipe_Informa.xlsx");
         };
 
         window.abrirEdicaoMembro = async (id) => {
             const snap = await getDocs(collection(db, "membros"));
             snap.forEach(d => {
                 if(d.id === id) {
-                    const m = d.data();
-                    abrirDrawerMembro(id);
-                    document.getElementById('mNome').value = m.nome;
+                    const m = d.data(); abrirDrawerMembro(id);
+                    document.getElementById('mNome').value = m.nome; 
                     document.getElementById('mEmail').value = m.email;
-                    document.getElementById('mMesEntrada').value = m.mesEntrada;
+                    document.getElementById('mTelefone').value = m.telefone || "";
+                    document.getElementById('mMesEntrada').value = m.mesEntrada; 
                     document.getElementById('mAnoEntrada').value = m.anoEntrada;
                     document.getElementById('mCategoria').value = m.categoria;
                 }
             });
         };
 
-        // ADMIN DE USUÁRIOS
         window.salvarUsuarioSistema = async () => {
             const id = document.getElementById('editUserId').value;
-            const u = {
-                usuario: document.getElementById('accUser').value,
-                senha: document.getElementById('accPass').value,
-                nivel: document.getElementById('accNivel').value,
-                categoriasPermitidas: Array.from(document.querySelectorAll('input[name="catPermissao"]:checked')).map(c => c.value)
-            };
-            if(!u.usuario || !u.senha) return alert("Preencha login e senha");
-            if(id) await updateDoc(doc(db, "usuarios", id), u);
-            else { u.status = "Ativo"; await addDoc(collection(db, "usuarios"), u); }
-            
-            document.getElementById('editUserId').value = "";
-            document.getElementById('accUser').value = "";
-            document.getElementById('accPass').value = "";
-            document.querySelectorAll('input[name="catPermissao"]').forEach(c => c.checked = false);
+            const u = { usuario: document.getElementById('accUser').value, senha: document.getElementById('accPass').value, nivel: document.getElementById('accNivel').value, categoriasPermitidas: Array.from(document.querySelectorAll('input[name="catPermissao"]:checked')).map(c => c.value) };
+            if(id) await updateDoc(doc(db, "usuarios", id), u); else { u.status = "Ativo"; await addDoc(collection(db, "usuarios"), u); }
             carregarLogins();
         };
 
         window.carregarLogins = async () => {
             const snap = await getDocs(collection(db, "usuarios"));
-            const lista = document.getElementById('listaAcessos');
-            lista.innerHTML = "";
-            snap.forEach(d => {
-                const u = d.data();
-                const b = u.status === "Inativo";
-                lista.innerHTML += `
-                <div class="flex justify-between p-3 border rounded-2xl bg-white shadow-sm text-[10px] font-bold items-center ${b ? 'bg-gray-100 opacity-60' : ''}">
-                    <span>${u.usuario.toUpperCase()} (${u.nivel})</span>
-                    <div class="space-x-2">
-                        <button onclick="toggleStatusUser('${d.id}', '${u.status}')" class="px-2 py-1 rounded border ${b ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}">${u.status || 'Ativo'}</button>
-                        <button onclick="abrirEdicaoUser('${d.id}')" class="text-blue-600">✏️</button>
-                        <button onclick="removerAcc('${d.id}')" class="text-gray-400">🗑️</button>
-                    </div>
-                </div>`;
-            });
+            const lista = document.getElementById('listaAcessos'); lista.innerHTML = "";
+            snap.forEach(d => { const u = d.data(); lista.innerHTML += `<div class="flex justify-between p-3 border rounded-2xl bg-white text-[10px] font-bold items-center"><span>${u.usuario.toUpperCase()}</span><div class="space-x-2"><button onclick="toggleStatusUser('${d.id}', '${u.status}')" class="px-2 py-1 rounded ${u.status === 'Inativo' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}">${u.status || 'Ativo'}</button><button onclick="removerAcc('${d.id}')" class="text-gray-400">🗑️</button></div></div>`; });
         };
 
-        window.abrirEdicaoUser = async (id) => {
-            const snap = await getDocs(collection(db, "usuarios"));
-            snap.forEach(d => {
-                if(d.id === id) {
-                    const u = d.data();
-                    document.getElementById('editUserId').value = id;
-                    document.getElementById('accUser').value = u.usuario;
-                    document.getElementById('accPass').value = u.senha;
-                    document.getElementById('accNivel').value = u.nivel;
-                    document.querySelectorAll('input[name="catPermissao"]').forEach(c => c.checked = u.categoriasPermitidas?.includes(c.value));
-                }
-            });
-        };
-
-        window.toggleStatusUser = async (id, status) => {
-            await updateDoc(doc(db, "usuarios", id), { status: status === "Inativo" ? "Ativo" : "Inativo" });
-            carregarLogins();
-        };
-
-        window.removerAcc = async (id) => { if(confirm("Remover login?")) { await deleteDoc(doc(db, "usuarios", id)); carregarLogins(); } };
-
-        window.switchTab = (tab) => {
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            document.getElementById(`content-${tab}`).classList.add('active');
-            if(tab === 'logs') carregarLogs();
-        };
-
+        window.toggleStatusUser = async (id, status) => { await updateDoc(doc(db, "usuarios", id), { status: status === "Inativo" ? "Ativo" : "Inativo" }); carregarLogins(); };
+        window.removerAcc = async (id) => { if(confirm("Excluir?")) { await deleteDoc(doc(db, "usuarios", id)); carregarLogins(); } };
+        window.switchTab = (t) => { document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); document.getElementById(`content-${t}`).classList.add('active'); if(t==='logs') carregarLogs(); };
         window.carregarLogs = async () => {
             const snap = await getDocs(query(collection(db, "logs"), orderBy("data", "desc")));
-            const lista = document.getElementById('listaLogs');
-            lista.innerHTML = "";
-            snap.forEach(d => {
-                const l = d.data();
-                lista.innerHTML += `<div class="p-1 border-b border-white/10 italic">[${l.data?.toDate().toLocaleString()}] ${l.usuario}: ${l.acao}</div>`;
-            });
+            const lista = document.getElementById('listaLogs'); lista.innerHTML = "";
+            snap.forEach(d => { const l = d.data(); lista.innerHTML += `<div class="p-1 border-b border-white/10">[${l.data?.toDate().toLocaleString()}] ${l.usuario}: ${l.acao}</div>`; });
         };
-
         document.getElementById('adminGear').onclick = () => { document.getElementById('modalAdmin').classList.add('open'); carregarLogins(); };
         window.fecharAdmin = () => document.getElementById('modalAdmin').classList.remove('open');
     </script>
