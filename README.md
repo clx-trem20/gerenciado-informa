@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -28,7 +29,7 @@
 
     <div id="sistema" class="hidden">
         <nav class="bg-white border-b px-6 py-4 flex justify-between items-center sticky top-0 z-40">
-            <h2 class="text-xl font-black text-blue-700 uppercase">Informa</h2>
+            <h2 class="text-xl font-black text-blue-700 uppercase tracking-tighter">Informa</h2>
             <div class="flex items-center space-x-4">
                 <button id="adminGear" class="hidden text-2xl hover:bg-gray-100 p-2 rounded-full transition">⚙️</button>
                 <button id="btnLogout" class="text-gray-500 font-bold text-sm hover:text-red-500">Sair</button>
@@ -48,6 +49,7 @@
                             <th class="px-6 py-4">Membro</th>
                             <th class="px-6 py-4">Categoria</th>
                             <th class="px-6 py-4">E-mail / Ano</th>
+                            <th class="px-6 py-4">Status</th>
                             <th class="px-6 py-4 text-center">Ações</th>
                         </tr>
                     </thead>
@@ -62,22 +64,41 @@
         <h2 id="drawerTitulo" class="text-2xl font-black mb-8 text-gray-800 uppercase">Membro da Equipe</h2>
         <input type="hidden" id="editId">
         <div class="space-y-4 overflow-y-auto pr-2 flex-1">
-            <input id="mNome" placeholder="Nome Completo" class="w-full p-4 border rounded-2xl bg-gray-50 outline-blue-600">
-            <select id="mCategoria" class="w-full p-4 border rounded-2xl bg-gray-50 outline-blue-600">
-                <option value="">Selecione a Categoria</option>
-                <option value="Meio Ambiente">🌿 Meio Ambiente</option>
-                <option value="Linguagens">📚 Linguagens</option>
-                <option value="Comunicações">📢 Comunicações</option>
-                <option value="Edição de Vídeo">🎬 Edição de Vídeo</option>
-                <option value="Cultura">🎭 Cultura</option>
-                <option value="Secretaria">📝 Secretaria</option>
-                <option value="Esportes">⚽ Esportes</option>
-                <option value="Presidência">👑 Presidência</option>
-                <option value="Informações">ℹ️ Informações</option>
-                <option value="Designer">🎨 Designer</option>
-            </select>
-            <input id="mEmail" type="email" placeholder="E-mail" class="w-full p-4 border rounded-2xl bg-gray-50 outline-blue-600">
-            <input id="mAno" type="number" placeholder="Ano de Entrada" class="w-full p-4 border rounded-2xl bg-gray-50 outline-blue-600">
+            <div>
+                <label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Nome Completo</label>
+                <input id="mNome" placeholder="Nome Completo" class="w-full p-4 border rounded-2xl bg-gray-50 outline-blue-600">
+            </div>
+            <div>
+                <label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Categoria</label>
+                <select id="mCategoria" class="w-full p-4 border rounded-2xl bg-gray-50 outline-blue-600">
+                    <option value="">Selecione...</option>
+                    <option value="Meio Ambiente">🌿 Meio Ambiente</option>
+                    <option value="Linguagens">📚 Linguagens</option>
+                    <option value="Comunicações">📢 Comunicações</option>
+                    <option value="Edição de Vídeo">🎬 Edição de Vídeo</option>
+                    <option value="Cultura">🎭 Cultura</option>
+                    <option value="Secretaria">📝 Secretaria</option>
+                    <option value="Esportes">⚽ Esportes</option>
+                    <option value="Presidência">👑 Presidência</option>
+                    <option value="Informações">ℹ️ Informações</option>
+                    <option value="Designer">🎨 Designer</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-[10px] font-bold text-gray-400 uppercase ml-1">E-mail</label>
+                <input id="mEmail" type="email" placeholder="E-mail" class="w-full p-4 border rounded-2xl bg-gray-50 outline-blue-600">
+            </div>
+            <div>
+                <label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Ano de Entrada</label>
+                <input id="mAno" type="number" placeholder="Ano" class="w-full p-4 border rounded-2xl bg-gray-50 outline-blue-600">
+            </div>
+            <div>
+                <label class="text-[10px] font-bold text-gray-400 uppercase ml-1">Status no Jornal</label>
+                <select id="mStatus" class="w-full p-4 border rounded-2xl bg-gray-50 outline-blue-600 font-bold">
+                    <option value="Ativo" class="text-green-600">✅ Ativo</option>
+                    <option value="Inativo" class="text-red-600">❌ Inativo</option>
+                </select>
+            </div>
         </div>
         <button onclick="salvarMembroBanco()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-xl mt-6">SALVAR NO SISTEMA</button>
     </div>
@@ -156,6 +177,7 @@
                 document.getElementById('mEmail').value = "";
                 document.getElementById('mAno').value = "";
                 document.getElementById('mCategoria').value = "";
+                document.getElementById('mStatus').value = "Ativo";
                 document.getElementById('drawerTitulo').innerText = "Cadastrar Membro";
             } else {
                 document.getElementById('drawerTitulo').innerText = "Editar Membro";
@@ -174,13 +196,13 @@
                 categoria: document.getElementById('mCategoria').value,
                 email: document.getElementById('mEmail').value,
                 ano: document.getElementById('mAno').value,
-                status: "Ativo"
+                status: document.getElementById('mStatus').value
             };
             if(!m.nome || !m.categoria) return alert("Nome e Categoria são obrigatórios!");
 
             if(id) {
                 await updateDoc(doc(db, "membros", id), m);
-                registrarLog(`Editou membro: ${m.nome}`);
+                registrarLog(`Editou membro: ${m.nome} (Status: ${m.status})`);
             } else {
                 await addDoc(collection(db, "membros"), m);
                 registrarLog(`Cadastrou membro: ${m.nome}`);
@@ -195,16 +217,21 @@
             snap.forEach(d => {
                 const m = d.data();
                 const id = d.id;
+                const isInativo = m.status === 'Inativo';
                 lista.innerHTML += `
-                <tr class="hover:bg-gray-50 border-b ${m.status !== 'Ativo' ? 'bg-red-50 text-gray-400' : ''}">
-                    <td class="px-6 py-4 font-bold text-gray-800">${m.nome}</td>
+                <tr class="hover:bg-gray-50 border-b ${isInativo ? 'bg-red-50 opacity-60' : ''}">
+                    <td class="px-6 py-4 font-bold ${isInativo ? 'text-gray-400' : 'text-gray-800'}">${m.nome}</td>
                     <td class="px-6 py-4"><span class="text-blue-600 font-semibold text-xs bg-blue-50 px-2 py-1 rounded-lg">${m.categoria}</span></td>
                     <td class="px-6 py-4 text-xs font-medium text-gray-500">${m.email}<br>Ingresso: ${m.ano}</td>
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-1 rounded-full text-[10px] font-bold ${!isInativo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                            ${m.status.toUpperCase()}
+                        </span>
+                    </td>
                     <td class="px-6 py-4 text-center space-x-4">
                         <button onclick="abrirDrawerComDados('${id}')" title="Editar">✏️</button>
-                        <button onclick="toggleMembro('${id}', '${m.status}', '${m.nome}')" title="Bloquear/Ativar">🚫</button>
                         <button onclick="excluirMembro('${id}', '${m.nome}')" title="Excluir">🗑️</button>
-                        <button onclick="enviarEmail('${m.email}', '${m.nome}')" title="Email">✉️</button>
+                        <button onclick="enviarEmail('${m.email}', '${m.nome}')" title="Email de Despedida">✉️</button>
                     </td>
                 </tr>`;
             });
@@ -220,15 +247,9 @@
                     document.getElementById('mEmail').value = m.email;
                     document.getElementById('mAno').value = m.ano;
                     document.getElementById('mCategoria').value = m.categoria;
+                    document.getElementById('mStatus').value = m.status || "Ativo";
                 }
             });
-        };
-
-        window.toggleMembro = async (id, status, nome) => {
-            const novo = status === "Ativo" ? "Inativo" : "Ativo";
-            await updateDoc(doc(db, "membros", id), { status: novo });
-            registrarLog(`${novo === 'Inativo' ? 'Inativou' : 'Reativou'} membro: ${nome}`);
-            carregarMembros();
         };
 
         window.excluirMembro = async (id, nome) => {
@@ -240,10 +261,10 @@
         };
 
         window.enviarEmail = (email, nome) => {
-            window.location.href = `mailto:${email}?subject=Agradecimento&body=Olá ${nome}, obrigado por sua dedicação ao Jornal Informa!`;
+            window.location.href = `mailto:${email}?subject=Agradecimento - Jornal Informa&body=Olá ${nome}, agradecemos imensamente pela tua dedicação ao Jornal Informa. Desejamos-te muito sucesso!`;
         };
 
-        // ACESSOS SISTEMA
+        // ACESSOS SISTEMA (ADMIN)
         window.criarLoginSistema = async () => {
             const u = document.getElementById('accUser').value;
             const p = document.getElementById('accPass').value;
@@ -261,7 +282,7 @@
             snap.forEach(d => {
                 const u = d.data();
                 lista.innerHTML += `
-                <div class="flex justify-between items-center p-4 border rounded-2xl bg-white">
+                <div class="flex justify-between items-center p-4 border rounded-2xl bg-white shadow-sm">
                     <div class="flex flex-col">
                         <span class="font-bold text-gray-800 text-sm">${u.usuario}</span>
                         <span class="text-[10px] text-blue-500 font-bold uppercase tracking-widest">${u.nivel}</span>
@@ -277,10 +298,7 @@
 
         window.resetSenha = async (id) => {
             const n = prompt("Digite a nova senha:");
-            if(n) {
-                await updateDoc(doc(db, "usuarios", id), { senha: n });
-                alert("Senha alterada!");
-            }
+            if(n) { await updateDoc(doc(db, "usuarios", id), { senha: n }); alert("Senha alterada!"); }
         };
 
         window.bloquearAcc = async (id, status) => {
@@ -289,19 +307,14 @@
         };
 
         window.excluirAcc = async (id) => {
-            if(confirm("Deletar este acesso?")) {
-                await deleteDoc(doc(db, "usuarios", id));
-                carregarLogins();
-            }
+            if(confirm("Deletar este acesso?")) { await deleteDoc(doc(db, "usuarios", id)); carregarLogins(); }
         };
 
         window.switchTab = (tab) => {
             document.getElementById('content-usuarios').classList.toggle('active', tab === 'usuarios');
             document.getElementById('content-logs').classList.toggle('active', tab === 'logs');
-            document.getElementById('btnTabUser').classList.toggle('text-blue-600', tab === 'usuarios');
-            document.getElementById('btnTabUser').classList.toggle('border-blue-600', tab === 'usuarios');
-            document.getElementById('btnTabLogs').classList.toggle('text-blue-600', tab === 'logs');
-            document.getElementById('btnTabLogs').classList.toggle('border-blue-600', tab === 'logs');
+            document.getElementById('btnTabUser').className = tab === 'usuarios' ? 'pb-2 font-bold text-blue-600 border-b-2 border-blue-600' : 'pb-2 font-bold text-gray-400';
+            document.getElementById('btnTabLogs').className = tab === 'logs' ? 'pb-2 font-bold text-blue-600 border-b-2 border-blue-600' : 'pb-2 font-bold text-gray-400';
             if(tab === 'logs') carregarLogs();
         };
 
