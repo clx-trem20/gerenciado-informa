@@ -2,84 +2,106 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Sistema Informa - Admin Pro</title>
+    <title>Sistema Informa - Gestão Total</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        .drawer { transform: translateX(100%); transition: transform 0.3s ease-in-out; }
+        .drawer.open { transform: translateX(0); }
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
         .modal.open { display: flex; }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-        .btn-tab.active { border-bottom: 3px solid #2563eb; color: #2563eb; }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen">
+<body class="bg-gray-100 min-h-screen">
 
-    <div id="login-screen" class="flex items-center justify-center h-screen px-4">
-        <div class="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md border border-gray-100">
-            <h1 class="text-3xl font-black text-center text-blue-700 mb-2 italic">INFORMA</h1>
-            <p class="text-gray-400 text-center text-xs font-bold mb-8 uppercase tracking-widest">Painel Administrativo</p>
-            <input type="text" id="loginUser" placeholder="Usuário" class="w-full p-4 mb-4 border rounded-2xl outline-blue-600 bg-gray-50">
-            <input type="password" id="loginPass" placeholder="Senha" class="w-full p-4 mb-6 border rounded-2xl outline-blue-600 bg-gray-50">
-            <button id="btnLogin" class="w-full bg-blue-700 text-white py-4 rounded-2xl font-bold hover:bg-blue-800 transition-all shadow-lg active:scale-95">ACESSAR</button>
+    <div id="login-screen" class="flex items-center justify-center h-screen bg-slate-200">
+        <div class="bg-white p-10 rounded-3xl shadow-2xl w-full max-w-md border-t-8 border-blue-600">
+            <h1 class="text-3xl font-black text-center text-blue-600 mb-8 italic">INFORMA ADMIN</h1>
+            <input type="text" id="loginUser" placeholder="Usuário" class="w-full p-4 mb-4 border rounded-2xl outline-blue-600">
+            <input type="password" id="loginPass" placeholder="Senha" class="w-full p-4 mb-6 border rounded-2xl outline-blue-600">
+            <button id="btnLogin" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold hover:bg-blue-700 transition shadow-lg">ENTRAR</button>
             <p id="erro" class="text-red-500 text-center mt-4 text-sm font-bold"></p>
         </div>
     </div>
 
     <div id="sistema" class="hidden">
-        <nav class="bg-white border-b px-6 py-4 flex justify-between items-center sticky top-0 z-40">
-            <h2 class="text-xl font-black text-blue-700">INFORMA</h2>
+        <nav class="bg-white shadow-sm border-b px-8 py-4 flex justify-between items-center sticky top-0 z-40">
+            <h2 class="text-xl font-bold text-blue-700 uppercase">Jornal Informa</h2>
             <div class="flex items-center space-x-4">
-                <button id="adminGear" class="hidden text-2xl hover:bg-gray-100 p-2 rounded-full transition">⚙️</button>
-                <button id="btnLogout" class="text-gray-500 font-bold text-sm hover:text-red-500 transition">Sair</button>
+                <button id="adminGear" class="hidden text-2xl p-2 hover:bg-gray-100 rounded-full transition">⚙️</button>
+                <button id="btnLogout" class="text-gray-500 font-bold hover:text-red-500">Sair</button>
             </div>
         </nav>
-        <main class="p-8 max-w-5xl mx-auto">
-            <div class="bg-white p-12 rounded-3xl shadow-sm border border-gray-100 text-center">
-                <h1 class="text-3xl font-bold text-gray-800">Olá, <span id="userName" class="text-blue-700"></span>!</h1>
-                <p class="text-gray-500 mt-2">O sistema está pronto para uso.</p>
+
+        <main class="p-8 max-w-7xl mx-auto">
+            <div class="flex justify-between items-center mb-8">
+                <h1 class="text-2xl font-black text-gray-800">EQUIPE DO JORNAL</h1>
+                <button onclick="abrirDrawer()" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700">+ Novo Membro</button>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border overflow-hidden">
+                <table class="min-w-full text-left">
+                    <thead class="bg-gray-50 text-gray-400 text-xs font-bold uppercase">
+                        <tr>
+                            <th class="px-6 py-4">Membro</th>
+                            <th class="px-6 py-4">Categoria</th>
+                            <th class="px-6 py-4">E-mail</th>
+                            <th class="px-6 py-4">Ano</th>
+                            <th class="px-6 py-4">Status</th>
+                            <th class="px-6 py-4 text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="listaMembros" class="divide-y divide-gray-100 text-sm font-medium"></tbody>
+                </table>
             </div>
         </main>
     </div>
 
+    <div id="drawerOverlay" onclick="fecharDrawer()" class="fixed inset-0 bg-black/40 hidden z-40"></div>
+    <div id="drawer" class="drawer fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-50 p-8">
+        <h2 id="drawerTitulo" class="text-2xl font-black mb-8 text-gray-800 uppercase">Cadastrar Membro</h2>
+        <input type="hidden" id="editId">
+        <div class="space-y-4">
+            <input id="mNome" placeholder="Nome Completo" class="w-full p-4 border rounded-xl bg-gray-50 outline-blue-600">
+            <select id="mCategoria" class="w-full p-4 border rounded-xl bg-gray-50 outline-blue-600">
+                <option value="">Selecione a Categoria</option>
+                <option value="Meio Ambiente">Meio Ambiente</option>
+                <option value="Linguagens">Linguagens</option>
+                <option value="Comunicações">Comunicações</option>
+                <option value="Secretaria">Secretaria</option>
+                <option value="Edição de Vídeo">Edição de Vídeo</option>
+                <option value="Designer">Designer</option>
+            </select>
+            <input id="mEmail" type="email" placeholder="E-mail" class="w-full p-4 border rounded-xl bg-gray-50 outline-blue-600">
+            <input id="mAno" type="number" placeholder="Ano de Entrada" class="w-full p-4 border rounded-xl bg-gray-50 outline-blue-600">
+            <button onclick="salvarMembroBanco()" class="w-full bg-blue-600 text-white py-4 rounded-xl font-bold shadow-xl">SALVAR NO SISTEMA</button>
+        </div>
+    </div>
+
     <div id="modalAdmin" class="modal">
-        <div class="bg-white w-full max-w-4xl rounded-3xl shadow-2xl p-8 max-h-[85vh] overflow-hidden flex flex-col relative">
-            <button onclick="fecharAdmin()" class="absolute top-4 right-6 text-gray-400 text-3xl hover:text-red-500">&times;</button>
+        <div class="bg-white w-full max-w-4xl rounded-3xl p-8 max-h-[85vh] overflow-y-auto relative">
+            <button onclick="fecharAdmin()" class="absolute top-4 right-6 text-2xl font-bold">&times;</button>
+            <h2 class="text-2xl font-black mb-6">⚙️ Painel de Acessos</h2>
             
-            <div class="flex space-x-6 border-b mb-6">
-                <button onclick="switchTab('usuarios')" id="tabUser" class="btn-tab pb-2 font-bold text-gray-500 active">Usuários</button>
-                <button onclick="switchTab('logs')" id="tabLogs" class="btn-tab pb-2 font-bold text-gray-500">Log de Atividades</button>
-            </div>
-
-            <div id="content-usuarios" class="tab-content active overflow-y-auto pr-2">
-                <div class="bg-blue-50 p-6 rounded-2xl mb-6">
-                    <h4 class="text-blue-800 font-bold text-xs uppercase mb-4">Novo Acesso</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
-                        <input id="novoLogin" placeholder="Login" class="p-3 rounded-xl border outline-blue-500">
-                        <input id="novaSenha" type="password" placeholder="Senha" class="p-3 rounded-xl border outline-blue-500">
-                        <select id="novoNivel" class="p-3 rounded-xl border outline-blue-500 bg-white">
-                            <option value="user">Membro</option>
-                            <option value="admin">Admin</option>
-                        </select>
-                        <button onclick="criarAcesso()" class="bg-blue-700 text-white rounded-xl font-bold">CRIAR</button>
-                    </div>
+            <div class="bg-blue-50 p-6 rounded-2xl mb-8">
+                <h4 class="text-xs font-bold text-blue-700 uppercase mb-4">Novo Usuário do Sistema</h4>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <input id="accUser" placeholder="Login" class="p-2 border rounded-lg">
+                    <input id="accPass" type="password" placeholder="Senha" class="p-2 border rounded-lg">
+                    <select id="accNivel" class="p-2 border rounded-lg">
+                        <option value="user">Comum</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                    <button onclick="criarLoginSistema()" class="bg-blue-600 text-white rounded-lg font-bold">CRIAR</button>
                 </div>
-                <div id="listaAcessos" class="space-y-3"></div>
             </div>
-
-            <div id="content-logs" class="tab-content overflow-y-auto pr-2">
-                <div class="flex justify-between items-center mb-4">
-                    <h4 class="text-gray-700 font-bold">Histórico Recente</h4>
-                    <button onclick="limparLogs()" class="text-xs text-red-500 font-bold hover:underline">Limpar Histórico</button>
-                </div>
-                <div id="listaLogs" class="space-y-2 text-xs font-mono"></div>
-            </div>
+            <div id="listaAcessos" class="space-y-2"></div>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAZsk5iPq2plw37JcgNFEhbKXkOGjtMYZU",
@@ -92,16 +114,7 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-        let currentUser = null;
-
-        // --- FUNÇÃO DE LOG ---
-        async function registrarLog(acao) {
-            await addDoc(collection(db, "logs"), {
-                usuario: currentUser ? currentUser.usuario : "Sistema",
-                acao: acao,
-                data: serverTimestamp()
-            });
-        }
+        let userLogado = null;
 
         // --- LOGIN ---
         document.getElementById('btnLogin').onclick = async () => {
@@ -110,106 +123,154 @@
             const q = query(collection(db, "usuarios"), where("usuario", "==", u), where("senha", "==", p));
             const snap = await getDocs(q);
 
-            if (snap.empty) { document.getElementById('erro').innerText = "Erro no Login!"; return; }
+            if (snap.empty) { document.getElementById('erro').innerText = "Usuário ou senha incorretos!"; return; }
             const data = snap.docs[0].data();
-            if (!data.ativo) { document.getElementById('erro').innerText = "CONTA BLOQUEADA!"; return; }
+            if (!data.ativo) { document.getElementById('erro').innerText = "ACESSO BLOQUEADO!"; return; }
 
-            currentUser = data;
+            userLogado = data;
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('sistema').classList.remove('hidden');
-            document.getElementById('userName').innerText = data.usuario;
             if (data.nivel === 'admin') document.getElementById('adminGear').classList.remove('hidden');
             
-            registrarLog("Login efetuado");
+            carregarMembros();
         };
 
         document.getElementById('btnLogout').onclick = () => location.reload();
 
-        // --- GESTÃO ADMIN ---
-        window.switchTab = (tab) => {
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            document.querySelectorAll('.btn-tab').forEach(b => b.classList.remove('active'));
-            document.getElementById(`content-${tab}`).classList.add('active');
-            document.getElementById(`tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`).classList.add('active');
-            if(tab === 'logs') carregarLogs();
+        // --- GESTÃO DE MEMBROS ---
+        window.abrirDrawer = (id = null) => {
+            document.getElementById('drawerTitulo').innerText = id ? "Editar Membro" : "Cadastrar Membro";
+            document.getElementById('editId').value = id || "";
+            if(!id) {
+                document.getElementById('mNome').value = "";
+                document.getElementById('mEmail').value = "";
+                document.getElementById('mAno').value = "";
+            }
+            document.getElementById('drawer').classList.add('open');
+            document.getElementById('drawerOverlay').classList.remove('hidden');
         };
 
-        window.fecharAdmin = () => document.getElementById('modalAdmin').classList.remove('open');
+        window.fecharDrawer = () => {
+            document.getElementById('drawer').classList.remove('open');
+            document.getElementById('drawerOverlay').classList.add('hidden');
+        };
+
+        window.salvarMembroBanco = async () => {
+            const id = document.getElementById('editId').value;
+            const dados = {
+                nome: document.getElementById('mNome').value,
+                categoria: document.getElementById('mCategoria').value,
+                email: document.getElementById('mEmail').value,
+                ano: document.getElementById('mAno').value,
+                status: "Ativo"
+            };
+
+            if (id) {
+                await updateDoc(doc(db, "membros", id), dados);
+            } else {
+                await addDoc(collection(db, "membros"), dados);
+            }
+            fecharDrawer();
+            carregarMembros();
+        };
+
+        window.carregarMembros = async () => {
+            const snap = await getDocs(query(collection(db, "membros"), orderBy("nome", "asc")));
+            const lista = document.getElementById('listaMembros');
+            lista.innerHTML = "";
+            snap.forEach(d => {
+                const m = d.data();
+                const id = d.id;
+                lista.innerHTML += `
+                <tr class="hover:bg-gray-50 border-b ${m.status !== 'Ativo' ? 'bg-red-50 text-gray-400' : ''}">
+                    <td class="px-6 py-4 font-bold text-gray-800">${m.nome}</td>
+                    <td class="px-6 py-4">${m.categoria}</td>
+                    <td class="px-6 py-4 font-normal">${m.email}</td>
+                    <td class="px-6 py-4">${m.ano}</td>
+                    <td class="px-6 py-4"><span class="px-2 py-1 rounded-full text-[10px] font-bold ${m.status === 'Ativo' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${m.status.toUpperCase()}</span></td>
+                    <td class="px-6 py-4 text-center space-x-3">
+                        <button onclick="abrirDrawer('${id}')" class="text-blue-500 hover:scale-125 transition">✏️</button>
+                        <button onclick="alternarStatusMembro('${id}', '${m.status}')" title="Ativar/Inativar">🚫</button>
+                        <button onclick="excluirMembro('${id}')" class="text-red-500">🗑️</button>
+                        <button onclick="enviarEmail('${m.email}', '${m.nome}')">✉️</button>
+                    </td>
+                </tr>`;
+                // Para carregar os dados na edição
+                if(document.getElementById('editId').value === id) {
+                    document.getElementById('mNome').value = m.nome;
+                    document.getElementById('mEmail').value = m.email;
+                    document.getElementById('mAno').value = m.ano;
+                    document.getElementById('mCategoria').value = m.categoria;
+                }
+            });
+        };
+
+        window.alternarStatusMembro = async (id, status) => {
+            const novo = status === "Ativo" ? "Inativo" : "Ativo";
+            await updateDoc(doc(db, "membros", id), { status: novo });
+            carregarMembros();
+        };
+
+        window.excluirMembro = async (id) => {
+            if(confirm("Deseja excluir este membro permanentemente?")) {
+                await deleteDoc(doc(db, "membros", id));
+                carregarMembros();
+            }
+        };
+
+        window.enviarEmail = (email, nome) => {
+            const assunto = encodeURIComponent("Agradecimento - Jornal Informa");
+            const corpo = encodeURIComponent(`Olá, ${nome}!\n\nGostaríamos de agradecer por todo o seu empenho e dedicação ao Jornal Informa.\n\nDesejamos muito sucesso em seus próximos passos!\n\nAtenciosamente,\nEquipe Jornal Informa.`);
+            window.location.href = `mailto:${email}?subject=${assunto}&body=${corpo}`;
+        };
+
+        // --- ADMIN (ENGRENAGEM) ---
         document.getElementById('adminGear').onclick = () => {
             document.getElementById('modalAdmin').classList.add('open');
-            carregarAcessos();
+            carregarLoginsSistema();
+        };
+        window.fecharAdmin = () => document.getElementById('modalAdmin').classList.remove('open');
+
+        window.criarLoginSistema = async () => {
+            const u = document.getElementById('accUser').value;
+            const p = document.getElementById('accPass').value;
+            const n = document.getElementById('accNivel').value;
+            await addDoc(collection(db, "usuarios"), { usuario: u, senha: p, nivel: n, ativo: true });
+            carregarLoginsSistema();
         };
 
-        window.criarAcesso = async () => {
-            const u = document.getElementById('novoLogin').value;
-            const s = document.getElementById('novaSenha').value;
-            const n = document.getElementById('novoNivel').value;
-            if(!u || !s) return;
-            await addDoc(collection(db, "usuarios"), { usuario: u, senha: s, nivel: n, ativo: true });
-            registrarLog(`Criou novo usuário: ${u}`);
-            carregarAcessos();
-            document.getElementById('novoLogin').value = ""; document.getElementById('novaSenha').value = "";
-        };
-
-        window.carregarAcessos = async () => {
+        window.carregarLoginsSistema = async () => {
             const snap = await getDocs(collection(db, "usuarios"));
             const lista = document.getElementById('listaAcessos');
             lista.innerHTML = "";
             snap.forEach(d => {
                 const u = d.data();
                 lista.innerHTML += `
-                <div class="flex items-center justify-between p-4 border rounded-2xl bg-white shadow-sm ${!u.ativo ? 'border-red-200 bg-red-50' : ''}">
-                    <div><b class="text-gray-700">${u.usuario}</b> <span class="text-[10px] bg-gray-200 px-2 rounded">${u.nivel}</span></div>
+                <div class="flex justify-between items-center p-3 border rounded-xl bg-white">
+                    <span><b>${u.usuario}</b> (${u.nivel})</span>
                     <div class="flex space-x-2">
-                        <button onclick="redefinirSenha('${d.id}', '${u.usuario}')" class="text-[10px] font-bold p-2 bg-yellow-400 rounded-lg">SENHA</button>
-                        <button onclick="toggleBloqueio('${d.id}', ${u.ativo}, '${u.usuario}')" class="text-[10px] font-bold p-2 ${u.ativo ? 'bg-orange-400' : 'bg-green-500 text-white'} rounded-lg">${u.ativo ? 'BLOQUEAR' : 'ATIVAR'}</button>
-                        ${u.usuario !== 'CLX' ? `<button onclick="excluirUser('${d.id}', '${u.usuario}')" class="text-[10px] font-bold p-2 bg-red-600 text-white rounded-lg">X</button>` : ''}
+                        <button onclick="resetarSenhaSistema('${d.id}')" class="bg-yellow-400 px-2 py-1 rounded text-[10px] font-bold">SENHA</button>
+                        <button onclick="toggleBloqueioSistema('${d.id}', ${u.ativo})" class="bg-gray-100 px-2 py-1 rounded text-[10px] font-bold">${u.ativo ? 'BLOQUEAR' : 'ATIVAR'}</button>
+                        ${u.usuario !== 'CLX' ? `<button onclick="excluirAcessoSistema('${d.id}')" class="bg-red-500 text-white px-2 py-1 rounded text-[10px] font-bold">X</button>` : ''}
                     </div>
                 </div>`;
             });
         };
 
-        window.redefinirSenha = async (id, nome) => {
-            const ns = prompt(`Nova senha para ${nome}:`);
-            if(ns) { 
-                await updateDoc(doc(db, "usuarios", id), { senha: ns }); 
-                registrarLog(`Alterou senha de: ${nome}`);
-                carregarAcessos();
-            }
+        window.resetarSenhaSistema = async (id) => {
+            const n = prompt("Nova senha:");
+            if(n) await updateDoc(doc(db, "usuarios", id), { senha: n });
+            carregarLoginsSistema();
         };
 
-        window.toggleBloqueio = async (id, status, nome) => {
+        window.toggleBloqueioSistema = async (id, status) => {
             await updateDoc(doc(db, "usuarios", id), { ativo: !status });
-            registrarLog(`${status ? 'Bloqueou' : 'Ativou'} usuário: ${nome}`);
-            carregarAcessos();
+            carregarLoginsSistema();
         };
 
-        window.excluirUser = async (id, nome) => {
-            if(confirm("Excluir?")) { 
-                await deleteDoc(doc(db, "usuarios", id)); 
-                registrarLog(`Excluiu usuário: ${nome}`);
-                carregarAcessos();
-            }
-        };
-
-        window.carregarLogs = async () => {
-            const q = query(collection(db, "logs"), orderBy("data", "desc"), limit(50));
-            const snap = await getDocs(q);
-            const lista = document.getElementById('listaLogs');
-            lista.innerHTML = "";
-            snap.forEach(d => {
-                const log = d.data();
-                const data = log.data?.toDate().toLocaleString('pt-BR') || "Agora";
-                lista.innerHTML += `<div class="p-2 border-b text-gray-600"><span class="text-blue-600 font-bold">[${data}]</span> <b>${log.usuario}:</b> ${log.acao}</div>`;
-            });
-        };
-
-        window.limparLogs = async () => {
-            if(confirm("Limpar todo o histórico?")) {
-                const snap = await getDocs(collection(db, "logs"));
-                snap.forEach(async d => await deleteDoc(doc(db, "logs", d.id)));
-                carregarLogs();
-            }
+        window.excluirAcessoSistema = async (id) => {
+            if(confirm("Excluir login?")) await deleteDoc(doc(db, "usuarios", id));
+            carregarLoginsSistema();
         };
     </script>
 </body>
