@@ -85,12 +85,12 @@
             <div class="flex space-x-6 border-b mb-6 uppercase text-[10px] font-black tracking-widest overflow-x-auto">
                 <button onclick="switchTab('usuarios')" id="tabUsuarios" class="pb-2 text-blue-600 border-b-2 border-blue-600 whitespace-nowrap">Acessos</button>
                 <button onclick="switchTab('emails')" id="tabEmails" class="pb-2 text-gray-400 whitespace-nowrap">Modelos (Zap/Email)</button>
-                <button onclick="switchTab('importacao')" id="tabImportacao" class="pb-2 text-gray-400 whitespace-nowrap">Massa (Add Vários)</button>
+                <button onclick="switchTab('importacao')" id="tabImportacao" class="pb-2 text-gray-400 whitespace-nowrap text-blue-600 border-b-2 border-blue-600">Massa (Add Vários)</button>
                 <button onclick="switchTab('logs')" id="tabLogs" class="pb-2 text-gray-400 whitespace-nowrap">Logs</button>
             </div>
             
             <!-- Aba Acessos -->
-            <div id="content-usuarios" class="tab-content active overflow-y-auto pr-2">
+            <div id="content-usuarios" class="tab-content overflow-y-auto pr-2">
                 <div class="bg-blue-50 p-6 rounded-3xl mb-6">
                     <input type="hidden" id="editUserId">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4 italic">
@@ -127,11 +127,11 @@
             </div>
 
             <!-- Aba Importação em Massa -->
-            <div id="content-importacao" class="tab-content overflow-y-auto pr-2">
+            <div id="content-importacao" class="tab-content active overflow-y-auto pr-2">
                 <div class="bg-emerald-50 p-6 rounded-3xl border border-emerald-200">
                     <div class="flex justify-between items-start mb-4">
                         <h4 class="text-[10px] font-black uppercase text-emerald-600 tracking-widest italic">Importação em Massa Inteligente</h4>
-                        <span class="text-[8px] bg-emerald-200 text-emerald-800 px-2 py-1 rounded-full font-bold uppercase italic">Detecção de Categoria Ativa</span>
+                        <span class="text-[8px] bg-emerald-200 text-emerald-800 px-2 py-1 rounded-full font-bold uppercase italic">Otimizado para Lotes</span>
                     </div>
                     <p class="text-[9px] text-emerald-800 mb-4 leading-relaxed">
                         Podes colar a linha completa. Se não incluíres categoria, usaremos a padrão abaixo:<br>
@@ -305,16 +305,18 @@
             });
         };
 
-        // --- IMPORTAÇÃO EM MASSA ATUALIZADA (COM CATEGORIA) ---
+        // --- IMPORTAÇÃO EM MASSA ATUALIZADA E FIXADA ---
 
         window.processarImportacaoMassa = async () => {
             const nomesTexto = document.getElementById('massaNomes').value.trim();
             const categoriaPadrao = document.getElementById('massaCategoria').value;
             const mes = document.getElementById('massaMes').value;
-            const ano = parseInt(document.getElementById('massaAno').value);
+            const anoInput = document.getElementById('massaAno').value;
+            const ano = parseInt(anoInput);
             const aviso = document.getElementById('progressoImportacao');
+            const btn = document.getElementById('btnImportarMassa');
 
-            if(!nomesTexto || !ano) return alert("Por favor, preencha o texto e o ano.");
+            if(!nomesTexto || !anoInput) return alert("Por favor, preencha o texto e o ano.");
 
             const linhas = nomesTexto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
             if(linhas.length === 0) return;
@@ -322,10 +324,15 @@
             if(!confirm(`Deseja processar ${linhas.length} entradas?`)) return;
 
             aviso.classList.remove('hidden');
-            document.getElementById('btnImportarMassa').disabled = true;
+            btn.disabled = true;
+            btn.innerText = "IMPORTANDO...";
 
-            try {
-                for(const linha of linhas) {
+            let importados = 0;
+            let falhas = 0;
+
+            // Processamento assíncrono real para evitar travamentos
+            const promises = linhas.map(async (linha) => {
+                try {
                     const partes = linha.split(/[;,]/).map(p => p.trim());
                     
                     const nome = partes[0] ? partes[0].toUpperCase() : "SEM NOME";
@@ -335,14 +342,14 @@
                     // Detecção de categoria na linha ou usa a padrão
                     let categoriaFinal = categoriaPadrao;
                     if(partes[3]) {
-                        // Verifica se o que foi escrito bate com alguma categoria real
                         const catEncontrada = listaCats.find(c => c.toLowerCase() === partes[3].toLowerCase());
                         if(catEncontrada) categoriaFinal = catEncontrada;
                     }
 
                     if(!categoriaFinal) {
                         console.warn(`Membro ${nome} ignorado: Sem categoria.`);
-                        continue;
+                        falhas++;
+                        return;
                     }
 
                     await addDoc(collection(db, "membros"), {
@@ -352,20 +359,29 @@
                         anoEntrada: ano,
                         status: "Ativo",
                         email: email,
-                        telefone: telefone
+                        telefone: telefone,
+                        criadoEm: serverTimestamp()
                     });
+                    importados++;
+                } catch (err) {
+                    console.error("Erro na linha:", linha, err);
+                    falhas++;
                 }
-                registrarLog(`Importação inteligente: ${linhas.length} processados.`);
-                alert(`Sucesso! Processamento de ${linhas.length} membros concluído.`);
-                document.getElementById('massaNomes').value = "";
-                carregarMembros();
-                fecharAdmin();
-            } catch (e) {
-                alert("Erro na importação: " + e.message);
-            } finally {
-                aviso.classList.add('hidden');
-                document.getElementById('btnImportarMassa').disabled = false;
-            }
+            });
+
+            // Aguarda todas as operações terminarem
+            await Promise.all(promises);
+
+            registrarLog(`Importação em massa: ${importados} sucessos, ${falhas} falhas.`);
+            alert(`Processamento Concluído!\n✅ Sucessos: ${importados}\n❌ Falhas: ${falhas}`);
+            
+            document.getElementById('massaNomes').value = "";
+            aviso.classList.add('hidden');
+            btn.disabled = false;
+            btn.innerText = "INICIAR IMPORTAÇÃO";
+            
+            carregarMembros();
+            fecharAdmin();
         };
 
         // --- COMUNICAÇÃO ---
@@ -485,10 +501,15 @@
         window.switchTab = (t) => {
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             document.getElementById(`content-${t}`).classList.add('active');
-            document.getElementById('tabUsuarios').className = "pb-2 whitespace-nowrap " + (t === 'usuarios' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400');
-            document.getElementById('tabEmails').className = "pb-2 whitespace-nowrap " + (t === 'emails' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400');
-            document.getElementById('tabImportacao').className = "pb-2 whitespace-nowrap " + (t === 'importacao' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400');
-            document.getElementById('tabLogs').className = "pb-2 whitespace-nowrap " + (t === 'logs' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400');
+            
+            const tabs = ['usuarios', 'emails', 'importacao', 'logs'];
+            tabs.forEach(tabId => {
+                const btn = document.getElementById(`tab${tabId.charAt(0).toUpperCase() + tabId.slice(1)}`);
+                if(btn) {
+                    btn.className = "pb-2 whitespace-nowrap " + (t === tabId ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400');
+                }
+            });
+
             if(t==='logs') carregarLogs();
             if(t==='emails') carregarModelosAdmin();
             if(t==='usuarios') carregarLogins();
@@ -624,7 +645,7 @@
 
         document.getElementById('adminGear').onclick = () => { 
             document.getElementById('modalAdmin').classList.add('open'); 
-            switchTab('usuarios');
+            switchTab('importacao');
         };
 
         window.fecharAdmin = () => document.getElementById('modalAdmin').classList.remove('open');
